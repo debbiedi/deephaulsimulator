@@ -1,0 +1,65 @@
+# ========================
+# Unity Generated
+# ========================
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# Asset Store tools plugin
+/[Aa]ssets/AssetStoreTools*
+
+# ========================
+# Visual Studio / Rider / IDE
+# ========================
+.vs/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ========================
+# OS Generated
+# ========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ========================
+# Crashlytics
+# ========================
+crashlytics-build.properties
+
+# ========================
+# Builds
+# ========================
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# ========================
+# Plastic SCM (ignore if not used)
+# ========================
+*.private.0
+*.private
