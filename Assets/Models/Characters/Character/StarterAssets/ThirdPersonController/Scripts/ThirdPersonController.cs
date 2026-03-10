@@ -110,6 +110,9 @@ namespace StarterAssets
 
         private bool _hasAnimator;
 
+        // FPS/TPS mod desteği
+        private bool _isFPSMode = false;
+
         private bool IsCurrentDeviceMouse
         {
             get
@@ -150,6 +153,26 @@ namespace StarterAssets
             // reset our timeouts on start
             _jumpTimeoutDelta = JumpTimeout;
             _fallTimeoutDelta = FallTimeout;
+
+            // CameraModeManager event'ine abone ol
+            if (CameraModeManager.Instance != null)
+            {
+                CameraModeManager.Instance.OnCameraModeChanged += OnCameraModeChanged;
+                _isFPSMode = CameraModeManager.Instance.CurrentMode == CameraMode.FPS;
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (CameraModeManager.Instance != null)
+            {
+                CameraModeManager.Instance.OnCameraModeChanged -= OnCameraModeChanged;
+            }
+        }
+
+        private void OnCameraModeChanged(CameraMode newMode)
+        {
+            _isFPSMode = newMode == CameraMode.FPS;
         }
 
         private void Update()
