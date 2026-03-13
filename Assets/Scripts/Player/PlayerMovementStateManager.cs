@@ -1,0 +1,397 @@
+using UnityEngine;
+using System;
+using StarterAssets;
+#if ENABLE_INPUT_SYSTEM
+using UnityEngine.InputSystem;
+#endif
+
+/// <summary>
+/// Karakter hareket state machine'inin merkezi yöneticisi.
+/// Walking ↔ Swimming ↔ UnderwaterWalking geçişlerini yönetir.
+/// ThirdPersonController ile entegre çalışarak hareket parametrelerini state'e göre ayarlar.
+/// 
+/// Kullanım:
+/// 1. Player GameObject'ine bu scripti ekleyin.
+/// 2. Inspector'da ThirdPersonController referansını atayın.
+/// </summary>
+public class PlayerMovementStateManager : MonoBehaviour
+{
+    public static PlayerMovementStateManager Instance { get; private set; }
+
+    [Header("Referanslar")]
+    [Tooltip("ThirdPersonController referansı (otomatik bulunur)")]
+    public ThirdPersonController controller;
+
+    [Tooltip("CharacterController referansı (otomatik bulunur)")]
+    public CharacterController characterController;
+
+    [Header("Yüzme Hız Ayarları")]
+    [Tooltip("Yüzme hızı (m/s)")]
+    public float swimSpeed = 2.5f;
+
+    [Tooltip("Yüzmede sprint hızı (m/s)")]
+    public float swimSprintSpeed = 4f;
+
+    [Tooltip("Dikey hareket hızı (yukarı/aşağı yüzme)")]
+    public float verticalSwimSpeed = 3.5f;
+
+    [Tooltip("Su altı yürüme hızı (m/s)")]
+    public float underwaterWalkSpeed = 1.2f;
+
+    [Tooltip("Su altı yürüme sprint hızı (m/s)")]
+    public float underwaterWalkSprintSpeed = 2f;
+
+    [Header("Su Altı Yürüme → Yüzme Geçişi")]
+    [Tooltip("Su altında yürürken Space tuşuyla yüzmeye geçer")]
+    public bool spaceToSwimFromWalk = true;
+
+    [Header("State Geçiş Ayarları")]
+    [Tooltip("State değişiklikleri arasındaki minimum bekleme süresi (saniye)")]
+    public float stateChangeCooldown = 0.5f;
+
+    [Tooltip("UnderwaterWalking'e geçmek için zemine kaç saniye temas etmeli")]
+    public float groundedRequiredDuration = 0.3f;
+
+    // Mevcut state
+    public PlayerMovementState CurrentState { get; private set; } = PlayerMovementState.Walking;
+
+    // Aktif su bölgesi
+    public WaterZone CurrentWaterZone { get; private set; }
+
+    // Su içinde mi?
+    public bool IsInWater { get; private set; }
+
+    // State değiştiğinde tetiklenen event
+    public event Action<PlayerMovementState> OnMovementStateChanged;
+
+    // Orijinal controller değerleri (geri dönmek için)
+    private float _originalMoveSpeed;
+    private float _originalSprintSpeed;
+    private float _originalGravity;
+    private float _originalJumpHeight;
+
+    // Dikey hareket hızı (yüzerken yukarı/aşağı)
+    private float _swimVerticalVelocity;
+
+    // State geçiş cooldown
+    private float _lastStateChangeTime = -10f;
+
+    // Grounded süre takibi (ping-pong önleme)
+    private float _groundedTimer = 0f;
+
+    // Su altı zemin raycast mesafesi
+    private const float UNDERWATER_GROUND_CHECK_DISTANCE = 0.5f;
+
+    private void Awake()
+    {
+        // Singleton
+        if (Instance != null && Instance != this)
+        {
+            Destroy(gameObject);
+            return;
+        }
+        Instance = this;
+
+        // Otomatik referans bulma
+        if (controller == null)
+            controller = GetComponent<ThirdPersonController>();
+        if (characterController == null)
+            characterController = GetComponent<CharacterController>();
+    }
+
+    private void Start()
+    {
+        if (controller == null)
+        {
+            Debug.LogError("[PlayerMovementStateManager] ThirdPersonController bulunamadı! Player objesine eklendiğinden emin olun.");
+            return;
+        }
+
+        // Orijinal değerleri kaydet
+        _originalMoveSpeed = controller.MoveSpeed;
+        _originalSprintSpeed = controller.SprintSpeed;
+        _originalGravity = controller.Gravity;
+        _originalJumpHeight = controller.JumpHeight;
+    }
+
+    private void Update()
+    {
+        if (!IsInWater || CurrentWaterZone == null) return;
+
+        // Zemin kontrolü: Hem CharacterController Grounded hem de Raycast kullan
+        bool isGrounded = CheckUnderwaterGrounded();
+        if (isGrounded)
+            _groundedTimer += Time.deltaTime;
+        else
+            _groundedTimer = 0f;
+
+        // Su içindeyken state geçişlerini kontrol et
+        UpdateWaterState(isGrounded);
+
+        // Yüzme modunda dikey hareket (Space/Ctrl)
+        if (CurrentState == PlayerMovementState.Swimming)
+        {
+            HandleSwimVerticalMovement();
+        }
+
+        // Su altı yürümede Space ile yüzmeye geçiş
+        if (CurrentState == PlayerMovementState.UnderwaterWalking && spaceToSwimFromWalk)
+        {
+            if (GetAscendInput())
+            {
+                SetState(PlayerMovementState.Swimming);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Su altında zemin tespiti. CharacterController.Grounded + Raycast ile daha güvenilir.
+    /// </summary>
+    private bool CheckUnderwaterGrounded()
+    {
+        // Önce CharacterController'ın kendi grounded check'i
+        if (controller.Grounded) return true;
+
+        // Ek raycast kontrolü (CharacterController bazen algılayamaz)
+        if (characterController != null)
+        {
+            float skinWidth = characterController.skinWidth;
+            Vector3 rayOrigin = transform.position + Vector3.up * 0.1f;
+            bool rayHit = Physics.Raycast(rayOrigin, Vector3.down, 
+                UNDERWATER_GROUND_CHECK_DISTANCE + 0.1f, 
+                controller.GroundLayers, QueryTriggerInteraction.Ignore);
+            return rayHit;
+        }
+
+        return false;
+    }
+
+    // ==================== Su Bölgesi Giriş/Çıkış ====================
+
+    /// <summary>
+    /// Su bölgesine giriş. WaterZone tarafından çağrılır.
+    /// </summary>
+    public void EnterWater(WaterZone waterZone)
+    {
+        IsInWater = true;
+        CurrentWaterZone = waterZone;
+        _groundedTimer = 0f;
+        _swimVerticalVelocity = 0f;
+
+        // Suya girerken dikey hızı sıfırla (yukarı fırlamayı engelle)
+        if (characterController != null)
+        {
+            // CharacterController'ın velocity'sini doğrudan değiştiremeyiz,
+            // ama ThirdPersonController'ın gravity değerini sıfırlayarak etkisini kaldırırız
+            controller.Gravity = 0f; // Geçici olarak yerçekimini kaldır
+        }
+
+        SetState(PlayerMovementState.Swimming, forceChange: true);
+        Debug.Log("[PlayerMovementStateManager] Suya girildi → Swimming");
+    }
+
+    /// <summary>
+    /// Su bölgesinden çıkış. WaterZone tarafından çağrılır.
+    /// </summary>
+    public void ExitWater()
+    {
+        IsInWater = false;
+        CurrentWaterZone = null;
+        _groundedTimer = 0f;
+        SetState(PlayerMovementState.Walking, forceChange: true);
+        Debug.Log("[PlayerMovementStateManager] Sudan çıkıldı → Walking");
+    }
+
+    // ==================== State Yönetimi ====================
+
+    /// <summary>
+    /// State değişikliğini uygular ve ilgili parametreleri ayarlar.
+    /// forceChange: Cooldown'u atlayarak anında geçiş yapar (su giriş/çıkış için).
+    /// </summary>
+    public void SetState(PlayerMovementState newState, bool forceChange = false)
+    {
+        if (CurrentState == newState) return;
+
+        // Cooldown kontrolü (zorlanmış değişiklikler hariç)
+        if (!forceChange && Time.time - _lastStateChangeTime < stateChangeCooldown)
+            return;
+
+        PlayerMovementState oldState = CurrentState;
+        CurrentState = newState;
+        _lastStateChangeTime = Time.time;
+
+        // State'e göre controller parametrelerini güncelle
+        ApplyStateParameters(newState);
+
+        OnMovementStateChanged?.Invoke(newState);
+        Debug.Log($"[PlayerMovementStateManager] State değişti: {oldState} → {newState}");
+    }
+
+    /// <summary>
+    /// Her state için ThirdPersonController parametrelerini ayarlar.
+    /// </summary>
+    private void ApplyStateParameters(PlayerMovementState state)
+    {
+        if (controller == null) return;
+
+        switch (state)
+        {
+            case PlayerMovementState.Walking:
+                controller.MoveSpeed = _originalMoveSpeed;
+                controller.SprintSpeed = _originalSprintSpeed;
+                controller.Gravity = _originalGravity;
+                controller.JumpHeight = _originalJumpHeight;
+                _swimVerticalVelocity = 0f;
+                break;
+
+            case PlayerMovementState.Swimming:
+                controller.MoveSpeed = swimSpeed;
+                controller.SprintSpeed = swimSprintSpeed;
+                // Nötr yüzerlik: Yerçekimi 0 - karakter ne batar ne çıkar
+                // Aşağı/yukarı hareket sadece Space/Ctrl ile olur
+                controller.Gravity = 0f;
+                controller.JumpHeight = 0f; // Suda zıplama yok
+                break;
+
+            case PlayerMovementState.UnderwaterWalking:
+                controller.MoveSpeed = underwaterWalkSpeed;
+                controller.SprintSpeed = underwaterWalkSprintSpeed;
+                // Su altı yürürken yerçekimi Walking ile aynı (zemine yapışsın)
+                controller.Gravity = CurrentWaterZone != null ? CurrentWaterZone.underwaterWalkGravity : -5f;
+                controller.JumpHeight = 0f; // Su altında zıplama yok
+                _swimVerticalVelocity = 0f;
+                break;
+        }
+    }
+
+    // ==================== Su İçi State Geçişleri ====================
+
+    /// <summary>
+    /// Su içindeyken grounded kontrolü ve state geçişlerini yönetir.
+    /// Ping-pong önleme: Cooldown ve grounded süre kontrolü ile.
+    /// </summary>
+    private void UpdateWaterState(bool isGroundedInWater)
+    {
+        switch (CurrentState)
+        {
+            case PlayerMovementState.Swimming:
+                // Yüzerken zemine temas → su altı yürüme
+                // Ping-pong önleme: Zemine en az groundedRequiredDuration kadar temas etmeli
+                if (isGroundedInWater 
+                    && _groundedTimer >= groundedRequiredDuration 
+                    && !GetAscendInput()
+                    && !GetDescendInput())
+                {
+                    SetState(PlayerMovementState.UnderwaterWalking);
+                    Debug.Log($"[StateManager] UnderwaterWalking! GroundedTimer: {_groundedTimer:F2}");
+                }
+                break;
+
+            case PlayerMovementState.UnderwaterWalking:
+                // Su altı yürürken Space basılırsa veya zeminden ayrılırsa → yüzme
+                if (!isGroundedInWater && _groundedTimer == 0f)
+                {
+                    SetState(PlayerMovementState.Swimming);
+                }
+                break;
+        }
+    }
+
+    // ==================== Dikey Yüzme Hareketi ====================
+
+    /// <summary>
+    /// Swimming modunda Space (yukarı) ve Ctrl (aşağı) ile dikey hareket.
+    /// CharacterController.Move() ile uygulanır.
+    /// </summary>
+    private void HandleSwimVerticalMovement()
+    {
+        if (characterController == null) return;
+
+        float verticalInput = 0f;
+
+        if (GetAscendInput())
+            verticalInput = 1f;
+        else if (GetDescendInput())
+            verticalInput = -1f;
+
+        if (Mathf.Abs(verticalInput) > 0.01f)
+        {
+            // Dikey hızı hedef hıza doğru lerp et (yumuşak geçiş)
+            _swimVerticalVelocity = Mathf.Lerp(_swimVerticalVelocity, verticalInput * verticalSwimSpeed, Time.deltaTime * 5f);
+        }
+        else
+        {
+            // Input yoksa yavaşça dur (su direnci)
+            float drag = CurrentWaterZone != null ? CurrentWaterZone.waterDrag : 0.3f;
+            _swimVerticalVelocity = Mathf.Lerp(_swimVerticalVelocity, 0f, Time.deltaTime * (3f + drag * 10f));
+        }
+
+        // Dikey hareketi uygula
+        if (Mathf.Abs(_swimVerticalVelocity) > 0.01f)
+        {
+            characterController.Move(new Vector3(0f, _swimVerticalVelocity * Time.deltaTime, 0f));
+        }
+
+        // Su yüzeyine çıkınca dikey hızı sınırla (sudan fırlamaması için)
+        if (CurrentWaterZone != null)
+        {
+            float headY = transform.position.y + (characterController.height * 0.5f);
+            if (headY >= CurrentWaterZone.waterSurfaceY && _swimVerticalVelocity > 0f)
+            {
+                _swimVerticalVelocity = 0f;
+            }
+        }
+    }
+
+    // ==================== Input Yardımcıları ====================
+
+    /// <summary>
+    /// Yukarı yüzme inputu (Space tuşu).
+    /// </summary>
+    public bool GetAscendInput()
+    {
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+        return Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
+#else
+        return Input.GetKey(KeyCode.Space);
+#endif
+    }
+
+    /// <summary>
+    /// Aşağı dalma inputu (Left Ctrl tuşu).
+    /// </summary>
+    public bool GetDescendInput()
+    {
+#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
+        return Keyboard.current != null && Keyboard.current.leftCtrlKey.isPressed;
+#else
+        return Input.GetKey(KeyCode.LeftControl);
+#endif
+    }
+
+    // ==================== Public Yardımcılar ====================
+
+    /// <summary>
+    /// Şu an suda mı?
+    /// </summary>
+    public bool IsSwimming => CurrentState == PlayerMovementState.Swimming;
+
+    /// <summary>
+    /// Şu an su altında yürüyor mu?
+    /// </summary>
+    public bool IsUnderwaterWalking => CurrentState == PlayerMovementState.UnderwaterWalking;
+
+    /// <summary>
+    /// Şu an su içinde mi? (Swimming veya UnderwaterWalking)
+    /// </summary>
+    public bool IsInWaterState => CurrentState != PlayerMovementState.Walking;
+
+    /// <summary>
+    /// Su yüzeyine olan derinlik (pozitif = su altında).
+    /// </summary>
+    public float GetCurrentDepth()
+    {
+        if (CurrentWaterZone == null) return 0f;
+        return CurrentWaterZone.GetDepth(transform.position.y);
+    }
+}

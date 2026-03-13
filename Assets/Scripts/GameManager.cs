@@ -12,6 +12,9 @@ public class GameManager : MonoBehaviour
     [Tooltip("CameraModeManager referansı (sahnede otomatik bulunur)")]
     public CameraModeManager cameraModeManager;
 
+    [Tooltip("PlayerMovementStateManager referansı (sahnede otomatik bulunur)")]
+    public PlayerMovementStateManager movementStateManager;
+
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -33,6 +36,16 @@ public class GameManager : MonoBehaviour
         {
             cameraModeManager.OnCameraModeChanged += HandleCameraModeChanged;
         }
+
+        // PlayerMovementStateManager referansını bul
+        if (movementStateManager == null)
+            movementStateManager = FindFirstObjectByType<PlayerMovementStateManager>();
+
+        // Hareket state değişikliklerini dinle
+        if (movementStateManager != null)
+        {
+            movementStateManager.OnMovementStateChanged += HandleMovementStateChanged;
+        }
     }
 
     private void OnDestroy()
@@ -41,6 +54,11 @@ public class GameManager : MonoBehaviour
         {
             cameraModeManager.OnCameraModeChanged -= HandleCameraModeChanged;
         }
+
+        if (movementStateManager != null)
+        {
+            movementStateManager.OnMovementStateChanged -= HandleMovementStateChanged;
+        }
     }
 
     private void HandleCameraModeChanged(CameraMode newMode)
@@ -48,6 +66,13 @@ public class GameManager : MonoBehaviour
         // İleride mod değişikliğine bağlı UI güncellemeleri, 
         // silah sistemi değişiklikleri vb. buraya eklenebilir
         Debug.Log($"[GameManager] Kamera modu: {newMode}");
+    }
+
+    private void HandleMovementStateChanged(PlayerMovementState newState)
+    {
+        // İleride state değişikliğine bağlı UI güncellemeleri,
+        // oksijen sistemi, ses efektleri vb. buraya eklenebilir
+        Debug.Log($"[GameManager] Hareket state: {newState}");
     }
 
     void Update()

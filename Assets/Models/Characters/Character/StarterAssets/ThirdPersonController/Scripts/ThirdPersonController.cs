@@ -87,6 +87,9 @@ namespace StarterAssets
         private float _verticalVelocity;
         private float _terminalVelocity = 53.0f;
 
+        // Su state referansı
+        private PlayerMovementStateManager _movementStateManager;
+
         // timeout deltatime
         private float _jumpTimeoutDelta;
         private float _fallTimeoutDelta;
@@ -97,6 +100,9 @@ namespace StarterAssets
         private int _animIDJump;
         private int _animIDFreeFall;
         private int _animIDMotionSpeed;
+        private int _animIDIsSwimming;
+        private int _animIDSwimSpeed;
+        private int _animIDSwimVertical;
 
 #if ENABLE_INPUT_SYSTEM 
         private PlayerInput _playerInput;
@@ -160,6 +166,9 @@ namespace StarterAssets
                 CameraModeManager.Instance.OnCameraModeChanged += OnCameraModeChanged;
                 _isFPSMode = CameraModeManager.Instance.CurrentMode == CameraMode.FPS;
             }
+
+            // PlayerMovementStateManager referansını al
+            _movementStateManager = GetComponent<PlayerMovementStateManager>();
         }
 
         private void OnDestroy()
@@ -182,6 +191,7 @@ namespace StarterAssets
             JumpAndGravity();
             GroundedCheck();
             Move();
+            UpdateSwimAnimations();
         }
 
         private void LateUpdate()
@@ -196,6 +206,9 @@ namespace StarterAssets
             _animIDJump = Animator.StringToHash("Jump");
             _animIDFreeFall = Animator.StringToHash("FreeFall");
             _animIDMotionSpeed = Animator.StringToHash("MotionSpeed");
+            _animIDIsSwimming = Animator.StringToHash("isSwimming");
+            _animIDSwimSpeed = Animator.StringToHash("SwimSpeed");
+            _animIDSwimVertical = Animator.StringToHash("SwimVertical");
         }
 
         private void GroundedCheck()
@@ -304,6 +317,63 @@ namespace StarterAssets
 
         private void JumpAndGravity()
         {
+            // Su içindeyken farklı yerçekimi davranışı
+            bool isInWater = _movementStateManager != null && _movementStateManager.IsInWaterState;
+
+            if (isInWater)
+            {
+                // Suda jump devre dışı (Space tuşu yukarı yüzme için kullanılır)
+                _input.jump = false;
+
+                // UnderwaterWalking: Zemine yapış, normal yerçekimi benzeri davranış
+                if (_movementStateManager.CurrentState == PlayerMovementState.UnderwaterWalking)
+                {
+                    if (Grounded)
+                    {
+                        if (_verticalVelocity < 0.0f)
+                            _verticalVelocity = -2f; // Zemine yapış
+                    }
+                    else
+                    {
+                        // Zemine doğru çek (güçlü yerçekimi)
+                        _verticalVelocity += Gravity * Time.deltaTime;
+                        _verticalVelocity = Mathf.Clamp(_verticalVelocity, -5f, 0f);
+                    }
+                }
+                // Swimming: Nötr yüzerlik (Gravity = 0)
+                // Dikey hareket sadece PlayerMovementStateManager üzerinden Space/Ctrl ile
+                else
+                {
+                    bool hasVerticalInput = _movementStateManager.GetAscendInput() || _movementStateManager.GetDescendInput();
+
+                    if (hasVerticalInput)
+                    {
+                        // Dikey input varken bu taraftaki velocity'yi sıfırla
+                        // (Dikey hareket PlayerMovementStateManager tarafından yönetilir)
+                        _verticalVelocity = 0f;
+                    }
+                    else
+                    {
+                        // Input yokken: su direnci ile dikey hızı yavaşça sıfırla (nötr yüzerlik)
+                        _verticalVelocity = Mathf.Lerp(_verticalVelocity, 0f, Time.deltaTime * 5f);
+
+                        // Çok küçük değerleri sıfırla
+                        if (Mathf.Abs(_verticalVelocity) < 0.01f)
+                            _verticalVelocity = 0f;
+                    }
+                }
+
+                // Animator güncellemesi
+                if (_hasAnimator)
+                {
+                    _animator.SetBool(_animIDJump, false);
+                    _animator.SetBool(_animIDFreeFall, false);
+                }
+
+                return; // Normal jump/gravity mantığını atla
+            }
+
+            // === Normal (Kara) Jump & Gravity ===
             if (Grounded)
             {
                 // reset the fall timeout timer
@@ -376,6 +446,37 @@ namespace StarterAssets
             if (lfAngle < -360f) lfAngle += 360f;
             if (lfAngle > 360f) lfAngle -= 360f;
             return Mathf.Clamp(lfAngle, lfMin, lfMax);
+        }
+
+        /// <summary>
+        /// Yüzme animasyon parametrelerini günceller.
+        /// Animator'da "isSwimming" (bool) ve "SwimSpeed" (float) parametreleri olmalı.
+        /// </summary>
+        private void UpdateSwimAnimations()
+        {
+            if (!_hasAnimator) return;
+
+            // isSwimming sadece Swimming state'inde true
+            // UnderwaterWalking'de false → normal yürüme animasyonu oynar
+            bool isSwimming = _movementStateManager != null && _movementStateManager.IsSwimming;
+
+            _animator.SetBool(_animIDIsSwimming, isSwimming);
+
+            if (isSwimming)
+            {
+                // Yatay yüzme hızı
+                float swimAnimSpeed = new Vector3(_controller.velocity.x, 0f, _controller.velocity.z).magnitude;
+                _animator.SetFloat(_animIDSwimSpeed, swimAnimSpeed, 0.1f, Time.deltaTime);
+
+                // Dikey yüzme değeri: -1 (aşağı), 0 (idle), +1 (yukarı)
+                float verticalTarget = 0f;
+                if (_movementStateManager.GetAscendInput())
+                    verticalTarget = 1f;
+                else if (_movementStateManager.GetDescendInput())
+                    verticalTarget = -1f;
+
+                _animator.SetFloat(_animIDSwimVertical, verticalTarget, 0.15f, Time.deltaTime);
+            }
         }
 
         private void OnDrawGizmosSelected()

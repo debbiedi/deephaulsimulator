@@ -5,11 +5,13 @@ TagManager:
   serializedVersion: 3
   tags:
   - CinemachineTarget
+  - Water
+  - Grounded
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Grounded
   - Water
   - UI
   - Player
