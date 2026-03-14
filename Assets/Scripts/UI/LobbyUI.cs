@@ -18,16 +18,28 @@ public class LobbyUI : MonoBehaviour
     [SerializeField] private GameObject lobbyPanel;
     [SerializeField] private GameObject lobbyListPanel;
 
-    [Header("Ana Menü Butonları")]
+    [Header("Ana Menü Lobi Oluşturma Ayarları")]
     [SerializeField] private Button createLobbyButton;
-    [SerializeField] private Button friendsLobbyButton;
+    [SerializeField] private Toggle isPrivateToggle; // [YENİ] Gizli oda yapılandırması
+    [SerializeField] private TMP_InputField createPasswordInput; // [YENİ] Şifre belirleme alanı
+
+    [Header("Ana Menü Diğer Butonlar")]
     [SerializeField] private Button findLobbyButton;
     [SerializeField] private Button quitButton;
 
-    [Header("Lobi Paneli")]
+    [Header("Şifre Sorma Paneli (Popup)")] // [YENİ] Şifreli oda için popup arayüzü
+    [SerializeField] private GameObject passwordPromptPanel;
+    [SerializeField] private TMP_InputField joinPasswordInput;
+    [SerializeField] private Button confirmJoinButton;
+    [SerializeField] private Button cancelJoinButton;
+    [SerializeField] private TextMeshProUGUI passwordErrorText;
+
+    [Header("Lobi Paneli İçi")]
     [SerializeField] private TextMeshProUGUI lobbyTitleText;
-    [SerializeField] private TextMeshProUGUI playerListText;
+    [SerializeField] private Transform playerListContent; // [YENİ] playerListText yerine Container
+    [SerializeField] private GameObject playerLobbyItemPrefab; // [YENİ] İçinde: Text(Oyuncu Adı) ve Button(Kick)
     [SerializeField] private TextMeshProUGUI playerCountText;
+    [SerializeField] private Button inviteFriendsButton; // [YENİ] Steam arayüzü davet et butonu
     [SerializeField] private Button startGameButton;
     [SerializeField] private Button leaveLobbyButton;
 
@@ -45,6 +57,10 @@ public class LobbyUI : MonoBehaviour
 
     // Steam lobi listesi callback
     private CallResult<LobbyMatchList_t> _lobbyMatchListCallResult;
+    
+    // Şifreli odaya katılırken kullanılacak geçici hafıza
+    private CSteamID _pendingJoinLobbyId;
+    private string _expectedPassword;
 
     private void Start()
     {
@@ -70,6 +86,8 @@ public class LobbyUI : MonoBehaviour
         // Lobi listesi callback
         _lobbyMatchListCallResult = CallResult<LobbyMatchList_t>.Create(OnLobbyListReceived);
 
+        if (passwordPromptPanel != null) passwordPromptPanel.SetActive(false);
+
         // Başlangıçta ana menüyü göster
         ShowPanel(mainMenuPanel);
     }
@@ -90,57 +108,34 @@ public class LobbyUI : MonoBehaviour
 
     private void SetupButtons()
     {
-        if (createLobbyButton != null)
-            createLobbyButton.onClick.AddListener(OnCreateLobbyClicked);
+        if (createLobbyButton != null) createLobbyButton.onClick.AddListener(OnCreateLobbyClicked);
+        if (findLobbyButton != null) findLobbyButton.onClick.AddListener(OnFindLobbyClicked);
+        if (quitButton != null) quitButton.onClick.AddListener(() => Application.Quit());
 
-        if (friendsLobbyButton != null)
-            friendsLobbyButton.onClick.AddListener(OnFriendsLobbyClicked);
+        if (startGameButton != null) startGameButton.onClick.AddListener(OnStartGameClicked);
+        if (leaveLobbyButton != null) leaveLobbyButton.onClick.AddListener(OnLeaveLobbyClicked);
+        if (refreshButton != null) refreshButton.onClick.AddListener(RefreshLobbyList);
+        if (backButton != null) backButton.onClick.AddListener(() => ShowPanel(mainMenuPanel));
 
-        if (findLobbyButton != null)
-            findLobbyButton.onClick.AddListener(OnFindLobbyClicked);
-
-        if (quitButton != null)
-            quitButton.onClick.AddListener(OnQuitClicked);
-
-        if (startGameButton != null)
-            startGameButton.onClick.AddListener(OnStartGameClicked);
-
-        if (leaveLobbyButton != null)
-            leaveLobbyButton.onClick.AddListener(OnLeaveLobbyClicked);
-
-        if (refreshButton != null)
-            refreshButton.onClick.AddListener(OnRefreshClicked);
-
-        if (backButton != null)
-            backButton.onClick.AddListener(OnBackClicked);
+        // Davet ve Şifre butonları
+        if (inviteFriendsButton != null) inviteFriendsButton.onClick.AddListener(() => SteamLobbyManager.Instance?.InviteFriends());
+        if (confirmJoinButton != null) confirmJoinButton.onClick.AddListener(OnConfirmJoinClicked);
+        if (cancelJoinButton != null) cancelJoinButton.onClick.AddListener(OnCancelJoinClicked);
     }
 
     // ==================== Ana Menü Butonları ====================
 
     private void OnCreateLobbyClicked()
     {
-        Debug.Log("[LobbyUI] Herkese açık lobi oluşturuluyor...");
-        SteamLobbyManager.Instance?.CreatePublicLobby();
-    }
-
-    private void OnFriendsLobbyClicked()
-    {
-        Debug.Log("[LobbyUI] Arkadaşlara özel lobi oluşturuluyor...");
-        SteamLobbyManager.Instance?.CreateFriendsOnlyLobby();
+        bool isPrivate = isPrivateToggle != null && isPrivateToggle.isOn;
+        string pwd = createPasswordInput != null ? createPasswordInput.text : "";
+        SteamLobbyManager.Instance?.CreatePublicLobby(isPrivate, pwd);
     }
 
     private void OnFindLobbyClicked()
     {
         ShowPanel(lobbyListPanel);
         RefreshLobbyList();
-    }
-
-    private void OnQuitClicked()
-    {
-        Application.Quit();
-        #if UNITY_EDITOR
-        UnityEditor.EditorApplication.isPlaying = false;
-        #endif
     }
 
     // ==================== Lobi Paneli Butonları ====================
@@ -163,19 +158,6 @@ public class LobbyUI : MonoBehaviour
     private void OnLeaveLobbyClicked()
     {
         SteamLobbyManager.Instance?.LeaveLobby();
-        ShowPanel(mainMenuPanel);
-    }
-
-    // ==================== Lobi Listesi Butonları ====================
-
-    private void OnRefreshClicked()
-    {
-        RefreshLobbyList();
-    }
-
-    private void OnBackClicked()
-    {
-        ShowPanel(mainMenuPanel);
     }
 
     // ==================== Lobi Listesi ====================
@@ -187,16 +169,10 @@ public class LobbyUI : MonoBehaviour
         // Mevcut listeyi temizle
         if (lobbyListContent != null)
         {
-            foreach (Transform child in lobbyListContent)
-            {
-                Destroy(child.gameObject);
-            }
+            foreach (Transform child in lobbyListContent) Destroy(child.gameObject);
         }
 
-        // Filtre
-        SteamMatchmaking.AddRequestLobbyListStringFilter("game", "DeepHaulSimulator", ELobbyComparison.k_ELobbyComparisonEqual);
-        SteamMatchmaking.AddRequestLobbyListResultCountFilter(20);
-
+        SteamLobbyManager.Instance?.RequestLobbyList();
         var handle = SteamMatchmaking.RequestLobbyList();
         _lobbyMatchListCallResult.Set(handle);
 
@@ -217,6 +193,10 @@ public class LobbyUI : MonoBehaviour
         {
             CSteamID lobbyId = SteamMatchmaking.GetLobbyByIndex(i);
             string hostName = SteamMatchmaking.GetLobbyData(lobbyId, "host_name");
+            string isPrivateStr = SteamMatchmaking.GetLobbyData(lobbyId, "is_private");
+            string actualPassword = SteamMatchmaking.GetLobbyData(lobbyId, "password");
+            
+            bool isPrivate = (isPrivateStr == "true");
             int memberCount = SteamMatchmaking.GetNumLobbyMembers(lobbyId);
             int maxMembers = SteamMatchmaking.GetLobbyMemberLimit(lobbyId);
 
@@ -224,29 +204,54 @@ public class LobbyUI : MonoBehaviour
             if (lobbyListContent != null && lobbyListItemPrefab != null)
             {
                 GameObject item = Instantiate(lobbyListItemPrefab, lobbyListContent);
-                
-                // Item text'ini ayarla
                 TextMeshProUGUI itemText = item.GetComponentInChildren<TextMeshProUGUI>();
+                
                 if (itemText != null)
                 {
-                    itemText.text = $"{hostName} ({memberCount}/{maxMembers})";
+                    string lockIcon = isPrivate ? "🔒 " : "";
+                    itemText.text = $"{lockIcon}{hostName} ({memberCount}/{maxMembers})";
                 }
 
-                // Katılma butonu
                 Button joinBtn = item.GetComponentInChildren<Button>();
                 if (joinBtn != null)
                 {
-                    CSteamID capturedId = lobbyId; // Closure için
                     joinBtn.onClick.AddListener(() => {
-                        SteamLobbyManager.Instance?.JoinLobby(capturedId);
+                        if (isPrivate) ShowPasswordPrompt(lobbyId, actualPassword);
+                        else SteamLobbyManager.Instance?.JoinLobby(lobbyId);
                     });
                 }
             }
-            else
-            {
-                Debug.Log($"  Lobi: {hostName} ({memberCount}/{maxMembers}) - ID: {lobbyId}");
-            }
         }
+    }
+    
+    // ==================== Şifre İşlemleri ====================
+
+    private void ShowPasswordPrompt(CSteamID lobbyId, string actualPassword)
+    {
+        _pendingJoinLobbyId = lobbyId;
+        _expectedPassword = actualPassword;
+
+        if (passwordPromptPanel != null) passwordPromptPanel.SetActive(true);
+        if (joinPasswordInput != null) joinPasswordInput.text = "";
+        if (passwordErrorText != null) passwordErrorText.text = "";
+    }
+
+    private void OnConfirmJoinClicked()
+    {
+        if (joinPasswordInput != null && joinPasswordInput.text == _expectedPassword)
+        {
+            if (passwordPromptPanel != null) passwordPromptPanel.SetActive(false);
+            SteamLobbyManager.Instance?.JoinLobby(_pendingJoinLobbyId);
+        }
+        else if (passwordErrorText != null)
+        {
+            passwordErrorText.text = "Yanlış Şifre!";
+        }
+    }
+
+    private void OnCancelJoinClicked()
+    {
+        if (passwordPromptPanel != null) passwordPromptPanel.SetActive(false);
     }
 
     // ==================== Event Handler'lar ====================
@@ -290,28 +295,52 @@ public class LobbyUI : MonoBehaviour
         // Başlık
         if (lobbyTitleText != null)
         {
-            string hostName = SteamLobbyManager.Instance.GetHostName();
-            lobbyTitleText.text = $"{hostName}'in Lobisi";
+            lobbyTitleText.text = $"{SteamLobbyManager.Instance.GetHostName()}'in Lobisi";
         }
 
         // Oyuncu listesi
         int count = SteamLobbyManager.Instance.GetLobbyMemberCount();
+        if (playerCountText != null) playerCountText.text = $"Oyuncular: {count}/4";
         
-        if (playerCountText != null)
+        // Dinamik Oyuncu Prefablarını Üret (Eski text listesi yerine GameObject bazlı)
+        if (playerListContent != null && playerLobbyItemPrefab != null)
         {
-            playerCountText.text = $"Oyuncular: {count}/4";
-        }
+            foreach (Transform child in playerListContent) Destroy(child.gameObject);
 
-        if (playerListText != null)
-        {
-            string list = "";
             for (int i = 0; i < count; i++)
             {
+                CSteamID memberId = SteamLobbyManager.Instance.GetLobbyMemberId(i);
                 string name = SteamLobbyManager.Instance.GetLobbyMemberName(i);
-                string prefix = (i == 0) ? "👑 " : "🎮 ";
-                list += $"{prefix}{name}\n";
+                bool isMe = (memberId == SteamUser.GetSteamID());
+                bool isRoomHost = (i == 0); // Steam lobi kurucusunu 0. index sayarız
+
+                GameObject item = Instantiate(playerLobbyItemPrefab, playerListContent);
+                
+                // İsim Yazdır
+                TextMeshProUGUI txt = item.GetComponentInChildren<TextMeshProUGUI>();
+                if (txt != null)
+                {
+                    string prefix = isRoomHost ? "👑 " : "🎮 ";
+                    string suffix = isMe ? " (Sen)" : "";
+                    txt.text = $"{prefix}{name}{suffix}";
+                }
+
+                // Kick Butonu Belirleme
+                Button kickBtn = item.GetComponentInChildren<Button>();
+                if (kickBtn != null)
+                {
+                    // Hostsa ve kendisi değilse [At] butonu gözüksün
+                    if (SteamLobbyManager.Instance.IsHost && !isMe)
+                    {
+                        kickBtn.gameObject.SetActive(true);
+                        kickBtn.onClick.AddListener(() => SteamLobbyManager.Instance.KickPlayer(memberId));
+                    }
+                    else
+                    {
+                        kickBtn.gameObject.SetActive(false);
+                    }
+                }
             }
-            playerListText.text = list;
         }
     }
 
