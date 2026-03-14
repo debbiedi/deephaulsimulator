@@ -3,15 +3,20 @@ using Steamworks;
 using FishNet;
 using FishNet.Managing;
 using FishNet.Transporting;
+using FishNet.Broadcast;
 using System;
+
+/// <summary>
+/// Oyuncuyu odadan atmak için kullanılacak FishNet mesajı (Broadcast)
+/// </summary>
+public struct KickBroadcast : IBroadcast
+{
+    public ulong TargetSteamId;
+}
 
 /// <summary>
 /// Steam Lobby yönetim sistemi.
 /// Lobi oluşturma, katılma, arkadaş davet etme ve FishNet bağlantılarını yönetir.
-/// 
-/// Kullanım:
-/// 1. NetworkManager objesine bu scripti ekleyin.
-/// 2. Steam açık olmalı (test için App ID 480 - Spacewar).
 /// </summary>
 public class SteamLobbyManager : MonoBehaviour
 {
@@ -32,6 +37,10 @@ public class SteamLobbyManager : MonoBehaviour
 
     // Host mu?
     public bool IsHost { get; private set; }
+
+    // Geçici şifre bilgileri
+    private bool _pendingIsPrivate;
+    private string _pendingPassword;
 
     // Events
     public event Action OnLobbyCreated;
@@ -85,6 +94,9 @@ public class SteamLobbyManager : MonoBehaviour
         // FishNet bağlantı event'leri
         _networkManager.ServerManager.OnServerConnectionState += OnServerConnectionStateChanged;
         _networkManager.ClientManager.OnClientConnectionState += OnClientConnectionStateChanged;
+        
+        // Atılma (Kick) mesajını dinle
+        _networkManager.ClientManager.RegisterBroadcast<KickBroadcast>(OnKickBroadcastReceived);
 
         string playerName = SteamFriends.GetPersonaName();
         Debug.Log($"[SteamLobbyManager] Steam başlatıldı! Oyuncu: {playerName}");
@@ -96,6 +108,7 @@ public class SteamLobbyManager : MonoBehaviour
         {
             _networkManager.ServerManager.OnServerConnectionState -= OnServerConnectionStateChanged;
             _networkManager.ClientManager.OnClientConnectionState -= OnClientConnectionStateChanged;
+            _networkManager.ClientManager.UnregisterBroadcast<KickBroadcast>(OnKickBroadcastReceived);
         }
     }
 
@@ -104,7 +117,7 @@ public class SteamLobbyManager : MonoBehaviour
     /// <summary>
     /// Yeni bir Steam lobisi oluşturur.
     /// </summary>
-    public void CreateLobby()
+    public void CreateLobby(bool isPrivate = false, string password = "")
     {
         if (!SteamManager.Initialized)
         {
@@ -118,6 +131,9 @@ public class SteamLobbyManager : MonoBehaviour
             return;
         }
 
+        _pendingIsPrivate = isPrivate;
+        _pendingPassword = password;
+
         Debug.Log($"[SteamLobbyManager] Lobi oluşturuluyor... (Tip: {lobbyType}, Max: {maxPlayers})");
         SteamMatchmaking.CreateLobby(lobbyType, maxPlayers);
     }
@@ -125,14 +141,14 @@ public class SteamLobbyManager : MonoBehaviour
     /// <summary>
     /// Herkese açık lobi oluştur.
     /// </summary>
-    public void CreatePublicLobby()
+    public void CreatePublicLobby(bool isPrivate = false, string password = "")
     {
         lobbyType = ELobbyType.k_ELobbyTypePublic;
-        CreateLobby();
+        CreateLobby(isPrivate, password);
     }
 
     /// <summary>
-    /// Sadece arkadaşlara açık lobi oluştur.
+    /// Sadece arkadaşlara açık lobi oluştur. (Mevcut referanslar kırılmasın diye eklendi)
     /// </summary>
     public void CreateFriendsOnlyLobby()
     {
@@ -175,6 +191,37 @@ public class SteamLobbyManager : MonoBehaviour
 
         var call = SteamMatchmaking.RequestLobbyList();
         Debug.Log("[SteamLobbyManager] Lobi listesi isteniyor...");
+    }
+
+    // ==================== Arkadaş Daveti ====================
+
+    public void InviteFriends()
+    {
+        if (SteamManager.Initialized && IsInLobby)
+        {
+            SteamFriends.ActivateGameOverlayInviteDialog(CurrentLobbyId);
+        }
+    }
+
+    // ==================== Oyuncu Atma ====================
+
+    public void KickPlayer(CSteamID targetId)
+    {
+        if (!IsHost || targetId == SteamUser.GetSteamID()) return;
+
+        // Bütün bağlı istemcilere Kick mesajı fırlat (İlgili kişi alınca sistemi kapatacak)
+        KickBroadcast msg = new KickBroadcast() { TargetSteamId = targetId.m_SteamID };
+        _networkManager.ServerManager.Broadcast(msg);
+        Debug.Log($"[SteamLobbyManager] Oyuncu atma isteği gönderildi: {targetId}");
+    }
+
+    private void OnKickBroadcastReceived(KickBroadcast msg, Channel channel)
+    {
+        if (msg.TargetSteamId == SteamUser.GetSteamID().m_SteamID)
+        {
+            Debug.Log("[SteamLobbyManager] Sunucu tarafından odadan atıldınız!");
+            LeaveLobby(); 
+        }
     }
 
     // ==================== Lobiden Çıkma ====================
@@ -228,6 +275,13 @@ public class SteamLobbyManager : MonoBehaviour
         SteamMatchmaking.SetLobbyData(CurrentLobbyId, "game", "DeepHaulSimulator");
         SteamMatchmaking.SetLobbyData(CurrentLobbyId, "host_name", SteamFriends.GetPersonaName());
         SteamMatchmaking.SetLobbyData(CurrentLobbyId, "host_id", SteamUser.GetSteamID().ToString());
+        
+        // Gizli oda bilgilerini Steam'e belirle
+        SteamMatchmaking.SetLobbyData(CurrentLobbyId, "is_private", _pendingIsPrivate ? "true" : "false");
+        if (_pendingIsPrivate)
+        {
+            SteamMatchmaking.SetLobbyData(CurrentLobbyId, "password", _pendingPassword);
+        }
 
         // Host olarak FishNet server + client başlat
         _networkManager.ServerManager.StartConnection();
@@ -330,6 +384,15 @@ public class SteamLobbyManager : MonoBehaviour
     {
         if (!IsInLobby) return 0;
         return SteamMatchmaking.GetNumLobbyMembers(CurrentLobbyId);
+    }
+    
+    /// <summary>
+    /// Lobideki oyuncunun Steam Id'sini getirir.
+    /// </summary>
+    public CSteamID GetLobbyMemberId(int index)
+    {
+        if (!IsInLobby) return CSteamID.Nil;
+        return SteamMatchmaking.GetLobbyMemberByIndex(CurrentLobbyId, index);
     }
 
     /// <summary>
