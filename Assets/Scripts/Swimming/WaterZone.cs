@@ -57,10 +57,14 @@ public class WaterZone : MonoBehaviour
     {
         if (!other.CompareTag(playerTag)) return;
 
-        if (PlayerMovementStateManager.Instance != null)
+        // Çarpışan objenin kendi sahipliğimizdeki karakter olduğundan emin olmak için
+        PlayerMovementStateManager stateManager = other.GetComponent<PlayerMovementStateManager>();
+        
+        // Eğer objede stateManager varsa ve IsOwner (bizim kontrolümüzde) ise suya gir
+        if (stateManager != null && stateManager.IsOwner)
         {
-            PlayerMovementStateManager.Instance.EnterWater(this);
-            Debug.Log($"[WaterZone] Oyuncu '{gameObject.name}' su bölgesine girdi.");
+            stateManager.EnterWater(this);
+            Debug.Log($"[WaterZone] Oyuncu '{other.gameObject.name}' su bölgesine girdi.");
         }
     }
 
@@ -68,10 +72,12 @@ public class WaterZone : MonoBehaviour
     {
         if (!other.CompareTag(playerTag)) return;
 
-        if (PlayerMovementStateManager.Instance != null)
+        PlayerMovementStateManager stateManager = other.GetComponent<PlayerMovementStateManager>();
+
+        if (stateManager != null && stateManager.IsOwner)
         {
-            PlayerMovementStateManager.Instance.ExitWater();
-            Debug.Log($"[WaterZone] Oyuncu '{gameObject.name}' su bölgesinden çıktı.");
+            stateManager.ExitWater();
+            Debug.Log($"[WaterZone] Oyuncu '{other.gameObject.name}' su bölgesinden çıktı.");
         }
     }
 
