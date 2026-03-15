@@ -133,6 +133,13 @@ public class PlayerGrabber : NetworkBehaviour
                 heldObject = grabbable;
                 heldRb = grabbable.GetComponent<Rigidbody>();
                 
+                // Objenin sahipliğini sunucudan üzerimize alıyoruz
+                NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+                if (netObj != null)
+                {
+                    ServerTakeOwnership(netObj);
+                }
+
                 // Objenin tutulma mesafesi başlangıcını, referans noktasına (holdPoint veya kamera) göre ayarla
                 Vector3 referencePos = holdPoint != null ? holdPoint.position : playerCamera.position;
                 currentHoldDistance = Vector3.Distance(referencePos, heldRb.position);
@@ -153,8 +160,40 @@ public class PlayerGrabber : NetworkBehaviour
             // Yerçekimini eski haline döndür
             heldRb.useGravity = originalUseGravity;
         }
+        
+        if (heldObject != null)
+        {
+            // Objenin sahipliğini bırak (Sunucuya geri ver)
+            NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+            if (netObj != null)
+            {
+                ServerRemoveOwnership(netObj);
+            }
+        }
 
         heldObject = null;
         heldRb = null;
     }
-}
+
+    // --- Ağ Üzerinden Sahiplik (Ownership) Değiştirme ---
+
+    [ServerRpc(RequireOwnership = true)]
+    private void ServerTakeOwnership(NetworkObject targetNetObj)
+    {
+        // Hedef obje varsa ve hali hazırda bize ait değilse
+        if (targetNetObj != null && targetNetObj.Owner != base.Owner)
+        {
+            // O objenin kontrolünü bu oyuncuya (Rpc'yi çağıran Owner'a) ver
+            targetNetObj.GiveOwnership(base.Owner);
+        }
+    }
+
+    [ServerRpc(RequireOwnership = true)]
+    private void ServerRemoveOwnership(NetworkObject targetNetObj)
+    {
+        // Hedef objenin sahibi hala bizim oyuncumuzsa, sahipliği kaldır (Sunucuya geri döner)
+        if (targetNetObj != null && targetNetObj.Owner == base.Owner)
+        {
+            targetNetObj.RemoveOwnership();
+        }
+    }}
