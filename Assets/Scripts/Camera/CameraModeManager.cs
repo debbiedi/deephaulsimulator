@@ -71,6 +71,8 @@ public class CameraModeManager : NetworkBehaviour
         if (base.IsOwner)
         {
             Instance = this;
+            // Başlangıç modunu ayarla
+            SetCameraMode(startMode, forceEvent: true);
         }
         else
         {
@@ -80,14 +82,10 @@ public class CameraModeManager : NetworkBehaviour
         }
     }
 
-    private void Start()
-    {
-        // Başlangıç modunu ayarla
-        SetCameraMode(startMode, forceEvent: true);
-    }
-
     private void Update()
     {
+        if (!base.IsOwner) return; // Sadece kendi karakterimizin kamerası/tuşları çalışsın
+
         bool togglePressed = false;
 
 #if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
