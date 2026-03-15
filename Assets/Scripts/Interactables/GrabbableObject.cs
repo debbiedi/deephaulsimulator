@@ -3,10 +3,20 @@ using UnityEngine;
 [RequireComponent(typeof(Rigidbody))]
 public class GrabbableObject : MonoBehaviour
 {
+    [Header("Item Identity")]
+    public string itemName = "Unnamed Item";
+    public string itemId = "";
+
+    [Header("Size Classification")]
+    public ItemSize itemSize = ItemSize.Large; // Varsayılan: Large (mevcut davranış korunur)
+
+    [Header("Weight")]
+    public float weight = 1f; // Kilogram cinsinden ağırlık
+
     [Header("Value Settings")]
     public float basePrice = 100f;
     public float currentPrice;
-    
+
     [Header("Damage Settings")]
     public float fragility = 5f; // Çarpma şiddetinin ne kadarı hasara dönüşecek
     public float damageThreshold = 3f; // Hasar almak için gereken minimum çarpma hızı (velocity)

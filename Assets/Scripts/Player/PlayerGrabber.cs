@@ -22,6 +22,11 @@ public class PlayerGrabber : NetworkBehaviour
     public float maxForce = 1500f; // Duvar arkasında kalırsa çok çekip buga sokmamak için maksimum güç limiti
     public bool reduceRotation = true; // Tutulan objenin dönüşünü yavaşlat / sabitle
 
+    [Header("Belt Bag Integration")]
+    public BeltBagInventory beltBagInventory;   // Inspector'dan atanır (aynı player üzerinde)
+    [Tooltip("Eşya bu mesafenin altına indiğinde çantaya otomatik emilir")]
+    public float bagCollectDistance = 1.0f;
+
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
     private bool originalUseGravity;
@@ -64,11 +69,27 @@ public class PlayerGrabber : NetworkBehaviour
         // Mouse scroll ile objeyi yakınlaştırıp uzaklaştırma (Yeni Input Sistemi)
         if (heldObject != null && Mouse.current != null)
         {
-            float scroll = Mouse.current.scroll.y.ReadValue() * 0.01f; // Yeni sistemde değerler çok büyük geldiği için küçültüyoruz
-            if (Mathf.Abs(scroll) > 0.01f)
+            float rawScroll = Mouse.current.scroll.y.ReadValue();
+            if (Mathf.Abs(rawScroll) > 0.1f)
             {
-                currentHoldDistance += scroll * scrollSpeed;
-                currentHoldDistance = Mathf.Clamp(currentHoldDistance, minHoldDistance, maxHoldDistance);
+                // Scroll yönünü normalize et (-1 veya +1) ve scrollSpeed ile çarp
+                float scrollDir = Mathf.Sign(rawScroll);
+                currentHoldDistance += scrollDir * scrollSpeed * Time.deltaTime * 5f;
+
+                // Küçük eşyalar çantaya emilmek için daha yakına gelebilir
+                float effectiveMinDistance = (heldObject.itemSize == ItemSize.Small) ?
+                    bagCollectDistance * 0.5f : minHoldDistance;
+                currentHoldDistance = Mathf.Clamp(currentHoldDistance, effectiveMinDistance, maxHoldDistance);
+            }
+
+            // R.E.P.O TARZI OTOMATİK TOPLAMA:
+            // Küçük eşya yeterince yakınlaştırıldığında çantaya otomatik emilir
+            if (heldObject.itemSize == ItemSize.Small
+                && currentHoldDistance <= bagCollectDistance
+                && beltBagInventory != null
+                && beltBagInventory.CanAddItem(heldObject))
+            {
+                CollectIntoBag();
             }
         }
     }
@@ -153,26 +174,67 @@ public class PlayerGrabber : NetworkBehaviour
         }
     }
 
-    void Release()
+    /// <summary>
+    /// Küçük eşyayı çantaya otomatik topla (R.E.P.O tarzı).
+    /// Scroll ile yeterince yakınlaştırıldığında veya bırakma anında çağrılır.
+    /// </summary>
+    void CollectIntoBag()
     {
-        if (heldRb != null)
+        if (heldObject == null || beltBagInventory == null) return;
+
+        NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+        if (netObj != null)
         {
-            // Yerçekimini eski haline döndür
-            heldRb.useGravity = originalUseGravity;
-        }
-        
-        if (heldObject != null)
-        {
-            // Objenin sahipliğini bırak (Sunucuya geri ver)
-            NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
-            if (netObj != null)
-            {
-                ServerRemoveOwnership(netObj);
-            }
+            beltBagInventory.ServerCollectItem(netObj);
         }
 
         heldObject = null;
         heldRb = null;
+    }
+
+    void Release()
+    {
+        if (heldObject == null)
+        {
+            heldRb = null;
+            return;
+        }
+
+        // --- KEMER ÇANTASI TOPLAMA KONTROLÜ ---
+        // Eşya küçük mü VE yeterince yakınsa çantaya ekle
+        bool collected = false;
+        if (heldObject.itemSize == ItemSize.Small
+            && beltBagInventory != null
+            && currentHoldDistance <= bagCollectDistance
+            && beltBagInventory.CanAddItem(heldObject))
+        {
+            CollectIntoBag();
+            collected = true;
+        }
+
+        // --- NORMAL BIRAKMA (mevcut davranış) ---
+        // Eğer çantaya toplanmadıysa, eski bırakma mantığını çalıştır
+        if (!collected)
+        {
+            if (heldRb != null)
+            {
+                // Yerçekimini eski haline döndür
+                heldRb.useGravity = originalUseGravity;
+            }
+
+            // Objenin sahipliğini bırak (Sunucuya geri ver)
+            if (heldObject != null)
+            {
+                NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+                if (netObj != null)
+                {
+                    ServerRemoveOwnership(netObj);
+                }
+            }
+
+            heldObject = null;
+            heldRb = null;
+        }
     }
 
     // --- Ağ Üzerinden Sahiplik (Ownership) Değiştirme ---
