@@ -181,16 +181,16 @@ public class SteamLobbyManager : MonoBehaviour
     /// <summary>
     /// Herkese açık lobileri listeler.
     /// </summary>
-    public void RequestLobbyList()
+    public SteamAPICall_t RequestLobbyList()
     {
-        if (!SteamManager.Initialized) return;
+        if (!SteamManager.Initialized) return default;
 
         // Filtre: Aynı oyun
         SteamMatchmaking.AddRequestLobbyListStringFilter("game", "DeepHaulSimulator", ELobbyComparison.k_ELobbyComparisonEqual);
         SteamMatchmaking.AddRequestLobbyListResultCountFilter(20);
 
-        var call = SteamMatchmaking.RequestLobbyList();
         Debug.Log("[SteamLobbyManager] Lobi listesi isteniyor...");
+        return SteamMatchmaking.RequestLobbyList();
     }
 
     // ==================== Arkadaş Daveti ====================
