@@ -26,15 +26,32 @@ public class PlayerGrabber : NetworkBehaviour
     public BeltBagInventory beltBagInventory;   // Inspector'dan atanır (aynı player üzerinde)
     [Tooltip("Eşya bu mesafenin altına indiğinde çantaya otomatik emilir")]
     public float bagCollectDistance = 1.0f;
+    [Tooltip("Eşyanın çantaya uçma animasyonunun hedef noktası (BeltBagZone Transform)")]
+    public Transform bagTargetPoint;
+    [Tooltip("Çantaya emilme animasyon süresi (saniye)")]
+    public float bagAnimationDuration = 0.4f;
 
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
     private bool originalUseGravity;
 
+    // Çantaya emilme animasyonu state
+    private bool _isCollectingToBag;
+    private float _collectTimer;
+    private Vector3 _collectStartPos;
+    private Vector3 _collectStartScale;
+
     void Update()
     {
         // Benim objem değil ise çalışma
         if (!base.IsOwner) return;
+
+        // --- ÇANTAYA EMİLME ANİMASYONU ---
+        if (_isCollectingToBag)
+        {
+            UpdateBagAnimation();
+            return; // Animasyon sırasında diğer input'lar bloklanır
+        }
 
         // TEST İÇİN: Baktığımız yeri Scene (ve Gizmos açıksa Game) penceresinde çizgi olarak çizer
         if (playerCamera != null)
@@ -83,13 +100,13 @@ public class PlayerGrabber : NetworkBehaviour
             }
 
             // R.E.P.O TARZI OTOMATİK TOPLAMA:
-            // Küçük eşya yeterince yakınlaştırıldığında çantaya otomatik emilir
+            // Küçük eşya yeterince yakınlaştırıldığında çantaya emilme animasyonu başlar
             if (heldObject.itemSize == ItemSize.Small
                 && currentHoldDistance <= bagCollectDistance
                 && beltBagInventory != null
                 && beltBagInventory.CanAddItem(heldObject))
             {
-                CollectIntoBag();
+                StartBagAnimation();
             }
         }
     }
@@ -97,6 +114,9 @@ public class PlayerGrabber : NetworkBehaviour
     void FixedUpdate()
     {
         if (!base.IsOwner) return;
+
+        // Animasyon sırasında spring fiziği uygulanmaz (obje direkt Transform ile hareket eder)
+        if (_isCollectingToBag) return;
 
         if (heldRb != null)
         {
@@ -175,8 +195,66 @@ public class PlayerGrabber : NetworkBehaviour
     }
 
     /// <summary>
+    /// Çantaya emilme animasyonunu başlatır.
+    /// Eşya fizikten koparılır ve Transform ile çantaya doğru hareket ettirilir.
+    /// </summary>
+    void StartBagAnimation()
+    {
+        if (heldObject == null || heldRb == null) return;
+
+        _isCollectingToBag = true;
+        _collectTimer = 0f;
+        _collectStartPos = heldObject.transform.position;
+        _collectStartScale = heldObject.transform.localScale;
+
+        // Animasyon sırasında fiziği devre dışı bırak (Transform ile hareket ettireceğiz)
+        heldRb.isKinematic = true;
+        heldRb.linearVelocity = Vector3.zero;
+        heldRb.angularVelocity = Vector3.zero;
+    }
+
+    /// <summary>
+    /// Her frame çağrılır: eşyayı çantaya doğru uçurur ve küçültür.
+    /// Animasyon bitince CollectIntoBag() ile despawn eder.
+    /// </summary>
+    void UpdateBagAnimation()
+    {
+        if (heldObject == null)
+        {
+            // Obje bir şekilde kaybolmuşsa animasyonu iptal et
+            _isCollectingToBag = false;
+            heldRb = null;
+            return;
+        }
+
+        _collectTimer += Time.deltaTime;
+        float t = Mathf.Clamp01(_collectTimer / bagAnimationDuration);
+
+        // Ease-in: başta yavaş, sona doğru hızlanarak çantaya gider
+        float easedT = t * t;
+
+        // Hedef pozisyon: BeltBagZone (çanta noktası) veya fallback olarak oyuncunun pozisyonu
+        Vector3 targetPos = bagTargetPoint != null ? bagTargetPoint.position : transform.position;
+
+        // Eşyayı çantaya doğru uçur
+        heldObject.transform.position = Vector3.Lerp(_collectStartPos, targetPos, easedT);
+
+        // Eşyayı küçült (çantanın içine giriyormuş etkisi)
+        heldObject.transform.localScale = Vector3.Lerp(_collectStartScale, Vector3.zero, easedT);
+
+        // Animasyon tamamlandı
+        if (t >= 1f)
+        {
+            _isCollectingToBag = false;
+            // Scale'i geri yükle (despawn öncesi ağ senkronizasyonu için)
+            heldObject.transform.localScale = _collectStartScale;
+            CollectIntoBag();
+        }
+    }
+
+    /// <summary>
     /// Küçük eşyayı çantaya otomatik topla (R.E.P.O tarzı).
-    /// Scroll ile yeterince yakınlaştırıldığında veya bırakma anında çağrılır.
+    /// Animasyon bittikten sonra veya direkt olarak çağrılır.
     /// </summary>
     void CollectIntoBag()
     {
@@ -201,14 +279,14 @@ public class PlayerGrabber : NetworkBehaviour
         }
 
         // --- KEMER ÇANTASI TOPLAMA KONTROLÜ ---
-        // Eşya küçük mü VE yeterince yakınsa çantaya ekle
+        // Eşya küçük mü VE yeterince yakınsa çantaya emilme animasyonu başlat
         bool collected = false;
         if (heldObject.itemSize == ItemSize.Small
             && beltBagInventory != null
             && currentHoldDistance <= bagCollectDistance
             && beltBagInventory.CanAddItem(heldObject))
         {
-            CollectIntoBag();
+            StartBagAnimation();
             collected = true;
         }
 

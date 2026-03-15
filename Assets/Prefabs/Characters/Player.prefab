@@ -908,10 +908,11 @@ MonoBehaviour:
   fpsVirtualCamera: {fileID: 6558721774762445484}
   startMode: 0
   toggleKey: 112
-  hideCharacterInFPS: 1
+  hideCharacterInFPS: 0
   hideDelayInFPS: 0.5
   characterRenderers:
   - {fileID: 8606715296541082268}
+  fpsNearClipPlane: 0.2
   activePriority: 20
   inactivePriority: 10
 --- !u!1 &2560449888161120816
@@ -3067,6 +3068,8 @@ MonoBehaviour:
   reduceRotation: 1
   beltBagInventory: {fileID: 4336225408076550258}
   bagCollectDistance: 1
+  bagTargetPoint: {fileID: 9091201036885235878}
+  bagAnimationDuration: 0.4
 --- !u!114 &8676302997163695490
 MonoBehaviour:
   m_ObjectHideFlags: 0

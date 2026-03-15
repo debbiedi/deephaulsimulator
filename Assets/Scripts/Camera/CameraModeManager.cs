@@ -29,14 +29,18 @@ public class CameraModeManager : NetworkBehaviour
     public KeyCode toggleKey = KeyCode.O;
 
     [Header("FPS Ayarları")]
-    [Tooltip("FPS modunda karakterin mesh renderlarını gizle")]
-    public bool hideCharacterInFPS = true;
+    [Tooltip("FPS modunda karakterin mesh renderlarını gizle (tek mesh ise false yapıp vücudu göster)")]
+    public bool hideCharacterInFPS = false;
 
     [Tooltip("Kameranın FPS'e giderken karakteri gizlemeden önce bekleyeceği SÜRE (Cinemachine Default Blend süreniz 2 saniye ise buraya 2 yazın)")]
     public float hideDelayInFPS = 0f;
 
-    [Tooltip("FPS modunda gizlenecek karakter mesh'leri (SkinnedMeshRenderer veya MeshRenderer)")]
+    [Tooltip("FPS modunda gizlenecek karakter mesh'leri (sadece KAFA mesh'i koyun, vücut mesh'i KOYMAYIN)")]
     public Renderer[] characterRenderers;
+
+    [Header("FPS Kamera Klipleme")]
+    [Tooltip("FPS modunda kameranın Near Clip Plane değeri (kafa geometrisini kesmek için, 0.15-0.25 arası önerilir)")]
+    public float fpsNearClipPlane = 0.2f;
 
     [Header("Cinemachine Priority")]
     [Tooltip("Aktif kamera için priority değeri")]
@@ -58,6 +62,10 @@ public class CameraModeManager : NetworkBehaviour
     // Cinemachine component referansları (runtime'da çözümlenir)
     private MonoBehaviour _tpsCinemachineComponent;
     private MonoBehaviour _fpsCinemachineComponent;
+
+    // Near clip plane yönetimi
+    private Camera _mainCamera;
+    private float _originalNearClipPlane;
 
     private void Awake()
     {
@@ -283,6 +291,12 @@ public class CameraModeManager : NetworkBehaviour
 
         // Karakter mesh'lerini anında GÖSTER
         SetCharacterRenderersVisible(true);
+
+        // Near Clip Plane'i TPS için eski haline döndür
+        if (_mainCamera != null)
+        {
+            _mainCamera.nearClipPlane = _originalNearClipPlane;
+        }
     }
 
     private void ActivateFPS()
@@ -294,19 +308,25 @@ public class CameraModeManager : NetworkBehaviour
         if (_fpsCinemachineComponent != null) SetCinemachinePriority(_fpsCinemachineComponent, activePriority);
         if (_tpsCinemachineComponent != null) SetCinemachinePriority(_tpsCinemachineComponent, inactivePriority);
 
-        // FPS modunda karakter mesh'lerini gizle (opsiyonel)
+        // FPS modunda karakter mesh'lerini gizle (opsiyonel - sadece kafa mesh'i için kullanın)
         if (hideCharacterInFPS)
         {
             if (hideDelayInFPS > 0f)
             {
-                // Geçiş süresi (Blend) varsa gecikmeli gizle
                 StartCoroutine(HideCharacterWithDelay(hideDelayInFPS));
             }
             else
             {
-                // Anında gizle
                 SetCharacterRenderersVisible(false);
             }
+        }
+
+        // Near Clip Plane'i FPS için ayarla (kafa geometrisini kesmek için)
+        if (_mainCamera == null) _mainCamera = Camera.main;
+        if (_mainCamera != null)
+        {
+            _originalNearClipPlane = _mainCamera.nearClipPlane;
+            _mainCamera.nearClipPlane = fpsNearClipPlane;
         }
     }
 
