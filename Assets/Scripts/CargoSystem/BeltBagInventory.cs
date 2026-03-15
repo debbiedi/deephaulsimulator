@@ -84,6 +84,8 @@ public class BeltBagInventory : NetworkBehaviour
         // Objeyi ağdan despawn et (tüm istemcilerde kaybolur)
         base.ServerManager.Despawn(itemNetObj);
 
+        Debug.Log($"[BeltBag] '{data.ItemName}' toplandı! Ağırlık: {CurrentWeight.Value:F1}/{maxWeight} kg | Eşya: {Items.Count}/{maxSlots} | Toplam Değer: {GetTotalValue():F0}₺");
+
         // Toplayan oyuncuya bildirim gönder
         TargetNotifyItemCollected(base.Owner, data);
     }
