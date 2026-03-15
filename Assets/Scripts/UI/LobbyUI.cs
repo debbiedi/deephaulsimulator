@@ -172,9 +172,11 @@ public class LobbyUI : MonoBehaviour
             foreach (Transform child in lobbyListContent) Destroy(child.gameObject);
         }
 
-        SteamLobbyManager.Instance?.RequestLobbyList();
-        var handle = SteamMatchmaking.RequestLobbyList();
-        _lobbyMatchListCallResult.Set(handle);
+        if (SteamLobbyManager.Instance != null)
+        {
+            var handle = SteamLobbyManager.Instance.RequestLobbyList();
+            _lobbyMatchListCallResult.Set(handle);
+        }
 
         Debug.Log("[LobbyUI] Lobi listesi yenileniyor...");
     }
