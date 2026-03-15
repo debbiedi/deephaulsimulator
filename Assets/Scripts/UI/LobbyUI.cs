@@ -92,6 +92,18 @@ public class LobbyUI : MonoBehaviour
         ShowPanel(mainMenuPanel);
     }
 
+    private void Update()
+    {
+        // Lobi ve Ana Menü açıkken karakterin (StarterAssets) fareyi kilitlemesini zorla engelle.
+        if ((mainMenuPanel != null && mainMenuPanel.activeSelf) || 
+            (lobbyPanel != null && lobbyPanel.activeSelf) ||
+            (lobbyListPanel != null && lobbyListPanel.activeSelf))
+        {
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+        }
+    }
+
     private void OnDestroy()
     {
         if (SteamLobbyManager.Instance != null)
@@ -142,6 +154,13 @@ public class LobbyUI : MonoBehaviour
 
     private void OnStartGameClicked()
     {
+        Debug.Log($"[LobbyUI] Başlat butonuna tıklandı. Instance var mı: {SteamLobbyManager.Instance != null}");
+        
+        if (SteamLobbyManager.Instance != null)
+        {
+            Debug.Log($"[LobbyUI] IsHost Durumu: {SteamLobbyManager.Instance.IsHost}");
+        }
+
         if (SteamLobbyManager.Instance == null || !SteamLobbyManager.Instance.IsHost) return;
 
         Debug.Log("[LobbyUI] Oyun başlatılıyor!");
@@ -149,8 +168,33 @@ public class LobbyUI : MonoBehaviour
         // Lobi metadata güncelle - artık katılınamaz
         SteamMatchmaking.SetLobbyJoinable(SteamLobbyManager.Instance.CurrentLobbyId, false);
 
-        // Oyun sahnesine geç (NetworkManager DontDestroyOnLoad olduğu için kalır)
-        var sceneLoadData = new FishNet.Managing.Scened.SceneLoadData(gameSceneName);
+        // Bütün sunucu istemcilerindeki oyuncu karakterlerini topla
+        var clients = InstanceFinder.ServerManager.Clients;
+        System.Collections.Generic.List<FishNet.Object.NetworkObject> movedObjs = new();
+        
+        foreach (var client in clients.Values)
+        {
+            if (client.FirstObject != null)
+            {
+                movedObjs.Add(client.FirstObject);
+            }
+            
+            // Eğer spawner birden çok nesne oluşturduysa onları da al
+            foreach(var obj in client.Objects)
+            {
+                if (!movedObjs.Contains(obj) && !obj.IsGlobal)
+                {
+                    movedObjs.Add(obj);
+                }
+            }
+        }
+
+        // Oyun sahnesine geçiş yap ve karakterleri beraberinde oraya götür
+        var sceneLoadData = new FishNet.Managing.Scened.SceneLoadData(
+            sceneNames: new string[] { gameSceneName }, 
+            movedNetworkObjects: movedObjs.ToArray()
+        );
+        
         sceneLoadData.ReplaceScenes = FishNet.Managing.Scened.ReplaceOption.All;
         InstanceFinder.SceneManager.LoadGlobalScenes(sceneLoadData);
     }

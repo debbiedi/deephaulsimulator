@@ -5,6 +5,8 @@ using StarterAssets;
 using UnityEngine.InputSystem;
 #endif
 
+using FishNet.Object;
+
 /// <summary>
 /// Karakter hareket state machine'inin merkezi yöneticisi.
 /// Walking ↔ Swimming ↔ UnderwaterWalking geçişlerini yönetir.
@@ -14,7 +16,7 @@ using UnityEngine.InputSystem;
 /// 1. Player GameObject'ine bu scripti ekleyin.
 /// 2. Inspector'da ThirdPersonController referansını atayın.
 /// </summary>
-public class PlayerMovementStateManager : MonoBehaviour
+public class PlayerMovementStateManager : NetworkBehaviour
 {
     public static PlayerMovementStateManager Instance { get; private set; }
 
@@ -84,19 +86,106 @@ public class PlayerMovementStateManager : MonoBehaviour
 
     private void Awake()
     {
-        // Singleton
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-
         // Otomatik referans bulma
         if (controller == null)
             controller = GetComponent<ThirdPersonController>();
         if (characterController == null)
             characterController = GetComponent<CharacterController>();
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+
+        if (base.IsOwner)
+        {
+            // OYUNCU BANA AİTSE (Local)
+            Instance = this;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+        }
+        else
+        {
+            // BAŞKA OYUNCUYSA (Kamera ve kontrolleri bende çalışmasın)
+            if (controller != null) controller.enabled = false;
+
+#if ENABLE_INPUT_SYSTEM
+            var playerInput = GetComponent<UnityEngine.InputSystem.PlayerInput>();
+            if (playerInput != null) playerInput.enabled = false;
+#endif
+
+            var starterInputs = GetComponent<StarterAssetsInputs>();
+            if (starterInputs != null) starterInputs.enabled = false;
+
+            // Karakterin içindeki kamerayı ve AudioListener'ı kapat
+            Camera[] cameras = GetComponentsInChildren<Camera>(true);
+            foreach (var cam in cameras)
+            {
+                cam.gameObject.SetActive(false);
+            }
+
+            AudioListener[] listeners = GetComponentsInChildren<AudioListener>(true);
+            foreach (var listener in listeners)
+            {
+                listener.enabled = false;
+            }
+        }
+    }
+
+    public override void OnStopClient()
+    {
+        base.OnStopClient();
+        if (base.IsOwner)
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+        }
+    }
+
+    private void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode)
+    {
+        // Sahne1 yüklendiğinde ve karakter benimse, onu SpawnPoint objesine taşı
+        if (scene.name == "Sahne1")
+        {
+            GameObject spawnPoint = GameObject.Find("SpawnPoint");
+            if (spawnPoint == null) spawnPoint = GameObject.Find("SpawnPoint "); // Boşluklu ihtimali de dene
+            
+            if (spawnPoint != null)
+            {
+                // Karakteri taşımak için CharacterController geçici olarak kapatılmalı ve biraz beklenmeli 
+                // (FishNet'in ve CharacterController'ın kendisini konumlandırma süresini bekliyoruz)
+                StartCoroutine(TeleportToSpawnPoint(spawnPoint.transform));
+            }
+            else
+            {
+                Debug.LogWarning("[PlayerMovementStateManager] Sahnede 'SpawnPoint' adında bir obje bulunamadı!");
+            }
+        }
+    }
+
+    private System.Collections.IEnumerator TeleportToSpawnPoint(Transform spawnTransform)
+    {
+        // Unity ve Fishnet fizik motorunun tam olarak sahneyi yüklemesini bekle
+        yield return new WaitForEndOfFrame();
+        
+        if (characterController != null) characterController.enabled = false;
+        
+        // Konumu ayarla
+        transform.position = spawnTransform.position;
+        transform.rotation = spawnTransform.rotation;
+        
+        // Kamerayı (varsa FirstPersonCamera vb.) doğrudan aynı hizaya çevir
+        if (controller != null && Camera.main != null)
+        {
+            // Cinemachine/StarterAssets için karakterin dönüşünü zorla
+            Vector2 targetRotation = new Vector2(spawnTransform.eulerAngles.y, spawnTransform.eulerAngles.x);
+            // controller üzerindeki yönü sıfırla/eşitlemek için gerekli değerleri güncelleyebilirsiniz
+            // Şimdilik sadece transform güncellendi.
+        }
+
+        yield return new WaitForEndOfFrame();
+        
+        if (characterController != null) characterController.enabled = true;
+        
+        Debug.Log("[PlayerMovementStateManager] Karakter başarıyla SpawnPoint'e ışınlandı.");
     }
 
     private void Start()

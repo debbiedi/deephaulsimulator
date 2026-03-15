@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using FishNet.Object;
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -9,7 +10,7 @@ using UnityEngine.InputSystem;
 /// Cinemachine Virtual Camera'ların priority değerlerini değiştirerek geçiş yapar.
 /// FPSZoneTrigger ile entegre çalışarak belirli bölgelerde FPS modunu zorunlu kılar.
 /// </summary>
-public class CameraModeManager : MonoBehaviour
+public class CameraModeManager : NetworkBehaviour
 {
     public static CameraModeManager Instance { get; private set; }
 
@@ -60,15 +61,23 @@ public class CameraModeManager : MonoBehaviour
 
     private void Awake()
     {
-        // Singleton pattern
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        Instance = this;
-
         ResolveCinemachineComponents();
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        
+        if (base.IsOwner)
+        {
+            Instance = this;
+        }
+        else
+        {
+            // BAŞKA OYUNCU İSE ONUN KAMERALARINI KAPAT (Ekran çakışmasını engeller)
+            if (tpsVirtualCamera != null) tpsVirtualCamera.SetActive(false);
+            if (fpsVirtualCamera != null) fpsVirtualCamera.SetActive(false);
+        }
     }
 
     private void Start()

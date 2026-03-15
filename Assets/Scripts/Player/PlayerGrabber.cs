@@ -1,7 +1,8 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using FishNet.Object;
 
-public class PlayerGrabber : MonoBehaviour
+public class PlayerGrabber : NetworkBehaviour
 {
     [Header("References")]
     public Transform playerCamera; // Karakterin ana kamerası (Raycast için)
@@ -27,6 +28,9 @@ public class PlayerGrabber : MonoBehaviour
 
     void Update()
     {
+        // Benim objem değil ise çalışma
+        if (!base.IsOwner) return;
+
         // TEST İÇİN: Baktığımız yeri Scene (ve Gizmos açıksa Game) penceresinde çizgi olarak çizer
         if (playerCamera != null)
         {
@@ -71,6 +75,8 @@ public class PlayerGrabber : MonoBehaviour
 
     void FixedUpdate()
     {
+        if (!base.IsOwner) return;
+
         if (heldRb != null)
         {
             // TPS Karakter kontrolcüsünde WASD'ye basınca karakter döner, bu da objenin karakterle birlikte sağa sola uçmasına sebep oluyordu.
