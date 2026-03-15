@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell -Command \"Get-Content ''c:\\\\Projects\\\\deephaulsimulator\\\\deephaulsimulator\\\\Assets\\\\Prefabs\\\\Characters\\\\Player.prefab'' | Select-String -Pattern ''m_Name:'' | head -50\")",
+      "Bash(powershell -Command:*)"
+    ]
+  }
+}

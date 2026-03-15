@@ -1,22 +1,69 @@
 using UnityEngine;
+using FishNet.Object;
+using FishNet.Connection;
 
 [RequireComponent(typeof(Rigidbody))]
-public class GrabbableObject : MonoBehaviour
+public class GrabbableObject : NetworkBehaviour
 {
+    [Header("Item Identity")]
+    public string itemName = "Unnamed Item";
+    public string itemId = "";
+
+    [Header("Size Classification")]
+    public ItemSize itemSize = ItemSize.Large; // Varsayılan: Large (mevcut davranış korunur)
+
+    [Header("Weight")]
+    public float weight = 1f; // Kilogram cinsinden ağırlık
+
     [Header("Value Settings")]
     public float basePrice = 100f;
     public float currentPrice;
-    
+
     [Header("Damage Settings")]
     public float fragility = 5f; // Çarpma şiddetinin ne kadarı hasara dönüşecek
     public float damageThreshold = 3f; // Hasar almak için gereken minimum çarpma hızı (velocity)
 
     private Rigidbody rb;
+    private bool _originalIsKinematic;
 
     void Start()
     {
         currentPrice = basePrice;
         rb = GetComponent<Rigidbody>();
+    }
+
+    public override void OnStartClient()
+    {
+        base.OnStartClient();
+        UpdatePhysicsAuthority();
+    }
+
+    public override void OnOwnershipClient(NetworkConnection prevOwner)
+    {
+        base.OnOwnershipClient(prevOwner);
+        UpdatePhysicsAuthority();
+    }
+
+    /// <summary>
+    /// Sahip olan istemcide fizik aktif, diğerlerinde kinematik.
+    /// Bu, NetworkTransform ile Rigidbody çakışmasını önler (titreşimi engeller).
+    /// </summary>
+    private void UpdatePhysicsAuthority()
+    {
+        if (rb == null) rb = GetComponent<Rigidbody>();
+
+        if (base.IsOwner || base.IsServerInitialized)
+        {
+            // Sahip veya sunucu: fizik normal çalışır
+            rb.isKinematic = false;
+            rb.interpolation = RigidbodyInterpolation.Interpolate;
+        }
+        else
+        {
+            // Diğer istemciler: fizik kapalı, pozisyon NetworkTransform'dan gelir
+            rb.isKinematic = true;
+            rb.interpolation = RigidbodyInterpolation.None;
+        }
     }
 
     void OnCollisionEnter(Collision collision)
