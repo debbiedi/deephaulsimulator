@@ -3178,7 +3178,7 @@ MonoBehaviour:
   inventory: {fileID: 4336225408076550258}
   audioSource: {fileID: 2823908585404832651}
   collectSound: {fileID: 8300000, guid: 87027de1a52c426459886917f545847e, type: 3}
-  bagFullSound: {fileID: 8300000, guid: dc91c434c5e1f5e48b5ac5b8ab638f7a, type: 3}
+  bagFullSound: {fileID: 8300000, guid: aca6e420dab8847d8817f304fc91e373, type: 3}
   volume: 0.661
 --- !u!82 &2823908585404832651
 AudioSource:
