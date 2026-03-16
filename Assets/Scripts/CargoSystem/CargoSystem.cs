@@ -36,8 +36,16 @@ public class CargoSystem : NetworkBehaviour
             Vector3 pos = entry.spawnPoint != null ? entry.spawnPoint.position : transform.position;
             Quaternion rot = entry.spawnPoint != null ? entry.spawnPoint.rotation : Quaternion.identity;
 
-            GameObject obj = Instantiate(entry.prefab, pos, rot);
-            base.ServerManager.Spawn(obj);
+            // PoolManager üzerinden Network Objesini havuzdan (veya yoksa instantiate ederek) spawn ediyoruz
+            NetworkObject networkPrefab = entry.prefab.GetComponent<NetworkObject>();
+            if (networkPrefab != null)
+            {
+                PoolManager.Instance.SpawnNetwork(networkPrefab, pos, rot);
+            }
+            else
+            {
+                Debug.LogError($"[CargoSystem] {entry.prefab.name} prefabında NetworkObject bileşeni yok!");
+            }
         }
 
         Debug.Log($"[CargoSystem] {spawnEntries.Length} eşya spawn edildi.");
