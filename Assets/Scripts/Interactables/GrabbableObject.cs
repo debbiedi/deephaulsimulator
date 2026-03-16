@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 using FishNet.Object;
 using FishNet.Connection;
 
@@ -23,8 +24,39 @@ public class GrabbableObject : NetworkBehaviour
     public float fragility = 5f; // Çarpma şiddetinin ne kadarı hasara dönüşecek
     public float damageThreshold = 3f; // Hasar almak için gereken minimum çarpma hızı (velocity)
 
+    [Header("Lifting Bags")]
+    [Tooltip("Bu eşyayı yüzeye çıkarmak için gereken balon sayısı")]
+    public int requiredBagCount = 1;
+
     private Rigidbody rb;
     private bool _originalIsKinematic;
+    private List<LiftingBag> attachedBags = new List<LiftingBag>();
+
+    // --- Public Erişimler (Lifting Bag sistemi için) ---
+    public Rigidbody Rb { get { if (rb == null) rb = GetComponent<Rigidbody>(); return rb; } }
+    public int AttachedBagCount => attachedBags.Count;
+    public bool HasEnoughBags => attachedBags.Count >= requiredBagCount;
+
+    /// <summary>
+    /// Bu eşyaya kaldırma balonu takılabilir mi?
+    /// Sadece Medium ve MediumLarge eşyalar desteklenir.
+    /// </summary>
+    public bool CanAttachBag()
+    {
+        return (itemSize == ItemSize.Medium || itemSize == ItemSize.MediumLarge)
+            && attachedBags.Count < requiredBagCount;
+    }
+
+    public void OnBagAttached(LiftingBag bag)
+    {
+        if (!attachedBags.Contains(bag))
+            attachedBags.Add(bag);
+    }
+
+    public void OnBagDetached(LiftingBag bag)
+    {
+        attachedBags.Remove(bag);
+    }
 
     void Start()
     {
@@ -94,10 +126,17 @@ public class GrabbableObject : NetworkBehaviour
     private void BreakObject()
     {
         Debug.Log($"{gameObject.name} kırıldı!");
-        
-        // Eğer sunucudaysak (Server) objeyi PoolManager ile ağdan despawn ediyoruz (veya havuza yolluyoruz)
+
         if (IsServer)
         {
+            // Takılı kaldırma balonlarını sök ve despawn et
+            for (int i = attachedBags.Count - 1; i >= 0; i--)
+            {
+                if (attachedBags[i] != null)
+                    attachedBags[i].Detach();
+            }
+            attachedBags.Clear();
+
             NetworkObject netObj = GetComponent<NetworkObject>();
             if (netObj != null)
             {
@@ -105,7 +144,6 @@ public class GrabbableObject : NetworkBehaviour
             }
             else
             {
-                // NetworkObject yoksa (olası değil ama güvenli kod yazalım)
                 Destroy(gameObject);
             }
         }

@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections.Generic;
 
 /// <summary>
 /// Su alanını tanımlayan trigger bölge scripti.
@@ -38,6 +39,44 @@ public class WaterZone : MonoBehaviour
 
     [Tooltip("Gizmo çizgi rengi")]
     public Color gizmoWireColor = new Color(0f, 0.6f, 1f, 0.8f);
+
+    // --- Statik Registry (LiftingBag su yüzeyi tespiti için) ---
+    public static readonly List<WaterZone> ActiveZones = new List<WaterZone>();
+
+    private void OnEnable()
+    {
+        if (!ActiveZones.Contains(this))
+            ActiveZones.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        ActiveZones.Remove(this);
+    }
+
+    /// <summary>
+    /// Verilen dünya pozisyonunu kapsayan WaterZone'u döndürür. Yoksa null.
+    /// LiftingBag tarafından su yüzeyi Y değerini bulmak için kullanılır.
+    /// </summary>
+    public static WaterZone GetZoneForPosition(Vector3 worldPos)
+    {
+        for (int i = 0; i < ActiveZones.Count; i++)
+        {
+            if (ActiveZones[i] != null && ActiveZones[i].ContainsPosition(worldPos))
+                return ActiveZones[i];
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Verilen dünya pozisyonunun bu WaterZone'un collider sınırları içinde olup olmadığını kontrol eder.
+    /// </summary>
+    public bool ContainsPosition(Vector3 worldPos)
+    {
+        Collider col = GetComponent<Collider>();
+        if (col == null) return false;
+        return col.bounds.Contains(worldPos);
+    }
 
     private void Reset()
     {

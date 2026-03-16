@@ -1,10 +1,14 @@
 /// <summary>
 /// Eşya boyutlarını tanımlar.
-/// Small: Çantaya konulabilir (yüzük, kolye, sikke vb.)
-/// Large: Fiziksel olarak taşınmalıdır (sandık, heykel, tablo vb.)
+/// Small: Kemer çantasına konulabilir (yüzük, kolye, sikke vb.)
+/// Medium: Kaldırma balonu ile yüzeye çıkarılabilir (1 balon yeter)
+/// MediumLarge: Kaldırma balonu ile yüzeye çıkarılabilir (3 balon gerekli)
+/// Large: Balonla kaldırılamaz, farklı mekanik gerektirir (çok büyük/ağır)
 /// </summary>
 public enum ItemSize
 {
-    Small,  // Çantaya eklenebilir
-    Large   // Fiziksel taşıma zorunlu
+    Small,        // Çantaya eklenebilir
+    Medium,       // 1 balonla kaldırılabilir
+    MediumLarge,  // 3 balonla kaldırılabilir
+    Large         // Balonla kaldırılamaz
 }
