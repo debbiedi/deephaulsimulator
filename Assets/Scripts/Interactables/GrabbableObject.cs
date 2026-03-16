@@ -95,8 +95,19 @@ public class GrabbableObject : NetworkBehaviour
     {
         Debug.Log($"{gameObject.name} kırıldı!");
         
-        // TODO: İleride burada Object Pooling sistemine geri döndürülebilir
-        // Şimdilik sadece yok ediyoruz. İsterseniz kırılma partikülleri falan da eklenebilir.
-        Destroy(gameObject);
+        // Eğer sunucudaysak (Server) objeyi PoolManager ile ağdan despawn ediyoruz (veya havuza yolluyoruz)
+        if (IsServer)
+        {
+            NetworkObject netObj = GetComponent<NetworkObject>();
+            if (netObj != null)
+            {
+                PoolManager.Instance.DespawnNetwork(netObj);
+            }
+            else
+            {
+                // NetworkObject yoksa (olası değil ama güvenli kod yazalım)
+                Destroy(gameObject);
+            }
+        }
     }
 }
