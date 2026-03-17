@@ -956,7 +956,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 968f3ec4b0e5d6540ab2ddb25a5611d2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WaterZone
-  waterSurfaceY: 1.70579
+  waterSurfaceY: 9.25
   waterDrag: 0.3
   swimGravity: -2
   underwaterWalkGravity: -5

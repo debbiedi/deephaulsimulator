@@ -218,9 +218,21 @@ public class LiftingBag : NetworkBehaviour
 
         // Balonu objenin dönüşüne göre konumlandır ama kendisini her zaman YUKARI doğru döndür!
         // Eğer kanca yukarı bakıyorsa bu değeri tersine (-90 yerine 90 veya tam tersi) çevirmemiz gerekir.
-        transform.position = _targetItem.transform.TransformPoint(_followOffset);
+        
+        // --- Sabit Su Altı Balon Yalpalama (Visual Sway) ---
+        // Balon eşyaya takılıyken de su akıntısıyla hafif sağa sola yalpalasın
+        // Ortası bulunarak tatlı bir seviyeye getirildi
+        float swayOffsetX = Mathf.Sin(Time.time * 1.1f) * 0.030f;
+        float swayOffsetZ = Mathf.Cos(Time.time * 0.9f) * 0.030f;
+        
+        Vector3 basePosition = _targetItem.transform.TransformPoint(_followOffset);
+        transform.position = basePosition + new Vector3(swayOffsetX, 0f, swayOffsetZ);
+
         // Kancanın aşağı bakması için X eksenini 90 olarak güncelliyoruz.
-        transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+        // Rotasyonda da çok hafif bir salınım yapalım
+        float swayRotX = Mathf.Sin(Time.time * 1.4f) * 1.9f;
+        float swayRotZ = Mathf.Cos(Time.time * 1.1f) * 1.9f;
+        transform.rotation = Quaternion.Euler(90f + swayRotX, 0f, swayRotZ);
     }
 
     void FixedUpdate()
@@ -292,6 +304,8 @@ public class LiftingBag : NetworkBehaviour
             State.Value = LiftingBagState.Paused;
             return;
         }
+
+        CheckSurface();
     }
 
     private void UpdatePaused()
@@ -304,20 +318,25 @@ public class LiftingBag : NetworkBehaviour
         {
             ApplyBuoyancy();
         }
+
+        CheckSurface();
     }
 
     private void UpdateInflated()
     {
         ApplyBuoyancy();
 
-        // Tam 6 saniye boyunca yukarı çıktıktan sonra direkt yüzeye ulaşmış gibi davran (yok olup gemiye gitmesi için)
-        // Yüzeyin nerede olduğunu (su sınırını) umursamıyoruz, süreyi bekliyoruz.
+        // 6 saniye boyunca yukarı çıktıktan sonra direkt yüzeye ulaşmış gibi davran (yok olup gemiye gitmesi için)
         _ascendTimer += Time.fixedDeltaTime;
         if (_ascendTimer >= 6f)
         {
             State.Value = LiftingBagState.Floating;
             if (_targetRb != null) _targetRb.linearVelocity *= 0.3f;
             NotifyShipCollector();
+        }
+        else
+        {
+            CheckSurface();
         }
     }
 
