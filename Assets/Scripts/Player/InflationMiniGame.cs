@@ -71,6 +71,7 @@ public class InflationMiniGame : NetworkBehaviour
         // Eşya bırakıldığında aktif mini-game varsa iptal et
         if (IsActive)
         {
+            Debug.Log("[InflationMiniGame] Pompalama bitti. Sebep: Tutulan eşya bırakıldı (OnItemReleased).");
             StopPumping();
         }
     }
@@ -89,18 +90,18 @@ public class InflationMiniGame : NetworkBehaviour
             LiftingBagState state = _currentBag.State.Value;
             if (state == LiftingBagState.Inflated || state == LiftingBagState.Floating || state == LiftingBagState.Detached)
             {
+                Debug.Log($"[InflationMiniGame] Pompalama bitti. Sebep: State = {state}");
                 StopPumping();
                 return;
             }
 
-            // Mesafe kontrolü: Eşyadan çok uzaklaştıysak kapat
-            // NOT: Balon pozisyonu yerine EŞYA pozisyonunu kullanıyoruz çünkü
-            // balon network gecikmesinden dolayı yanlış yerde olabilir
+            // Mesafe kontrolü: Eşyadan çok uzaklaştıysak kapat (Uzaktan atma eklendiği için limiti 55f yaptık)
             if (_currentBag.TargetItem != null)
             {
                 float dist = Vector3.Distance(transform.position, _currentBag.TargetItem.transform.position);
-                if (dist > _currentBag.pumpRange + 1f)
+                if (dist > 55f) 
                 {
+                    Debug.Log($"[InflationMiniGame] Pompalama bitti. Sebep: Mesafe sınırı aşıldı (Dist: {dist} > Limit: 55)");
                     StopPumping();
                     return;
                 }
@@ -110,6 +111,7 @@ public class InflationMiniGame : NetworkBehaviour
         // İptal tuşu
         if (Keyboard.current != null && Keyboard.current[cancelKey].wasPressedThisFrame)
         {
+            Debug.Log("[InflationMiniGame] Pompalama bitti. Sebep: İptal tuşuna (Escape) basıldı.");
             StopPumping();
             return;
         }
@@ -119,6 +121,7 @@ public class InflationMiniGame : NetworkBehaviour
         {
             if (_playerGrabber == null || _playerGrabber.HeldObject == null)
             {
+                Debug.Log("[InflationMiniGame] Pompalama bitti. Sebep: Sol tuşa tıklandı.");
                 StopPumping();
                 return;
             }
@@ -128,6 +131,7 @@ public class InflationMiniGame : NetworkBehaviour
         _idleTimer += Time.deltaTime;
         if (_idleTimer >= timeout)
         {
+            Debug.Log($"[InflationMiniGame] Pompalama bitti. Sebep: Zaman aşımı ({timeout} saniye boyunca pompalanmadı).");
             StopPumping();
             return;
         }

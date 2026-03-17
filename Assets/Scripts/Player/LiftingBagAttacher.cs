@@ -31,7 +31,7 @@ public class LiftingBagAttacher : NetworkBehaviour
 
     [Header("Ayarlar")]
     [Tooltip("Balon takma tuşu")]
-    public Key attachKey = Key.F;
+    public Key attachKey = Key.L;
 
     // --- SyncVar: Oyuncunun kalan balon sayısı ---
     public readonly SyncVar<int> BagCount = new SyncVar<int>();
@@ -58,7 +58,7 @@ public class LiftingBagAttacher : NetworkBehaviour
     {
         if (!base.IsOwner) return;
 
-        // [F] tuşu: Balon tak veya yakındaki balonu pompalamaya başla
+        // [L] tuşu: Balon tak veya yakındaki balonu pompalamaya başla
         if (Keyboard.current != null && Keyboard.current[attachKey].wasPressedThisFrame)
         {
             TryAttachOrPump();
@@ -66,23 +66,38 @@ public class LiftingBagAttacher : NetworkBehaviour
     }
 
     /// <summary>
-    /// [F] basıldığında:
-    /// 1) Eşya tutuyorsak ve koşullar uygunsa → balon tak
-    /// 2) Eşya tutmuyorsak ama yakınımızda pompalanabilir balon varsa → pompalamaya başla
+    /// [L] basıldığında:
+    /// 1) Eşya tutuyorsak veya bakıyorsak ve koşullar uygunsa → balon tak
+    /// 2) Hedefte eşya yoksa ama yakınımızda pompalanabilir balon varsa → pompalamaya başla
     /// </summary>
     private void TryAttachOrPump()
     {
-        // Durum 1: Eşya tutuyorsak → balon takma dene
-        if (playerGrabber != null && playerGrabber.HeldObject != null)
-        {
-            GrabbableObject held = playerGrabber.HeldObject;
+        GrabbableObject targetItem = null;
 
+        if (playerGrabber != null)
+        {
+            // Önce tutulan eşya var mı kontrol edelim
+            if (playerGrabber.HeldObject != null)
+            {
+                targetItem = playerGrabber.HeldObject;
+            }
+            // Tutulan eşya yoksa bakılan eşya var mı ona bakalım
+            else if (playerGrabber.playerCamera != null)
+            {
+                RaycastHit hit;
+                if (Physics.Raycast(playerGrabber.playerCamera.position, playerGrabber.playerCamera.forward, out hit, playerGrabber.grabRange, playerGrabber.grabMask))
+                {
+                    targetItem = hit.collider.GetComponentInParent<GrabbableObject>();
+                }
+            }
+        }
+
+        // Durum 1: Bir eşyaya bakıyorsak veya tutuyorsak → balon takma dene
+        if (targetItem != null)
+        {
             // Koşullar:
-            // - Eşya Medium veya MediumLarge mi?
-            // - Su altında mıyız?
-            // - Balon kaldı mı?
-            // - Eşyada zaten yeterli balon var mı?
-            if (!held.CanAttachBag())
+            // - Eşya Medium veya MediumLarge mi? vs.
+            if (!targetItem.CanAttachBag())
             {
                 Debug.Log("[LiftingBagAttacher] Bu eşyaya balon takılamaz.");
                 return;
@@ -101,15 +116,15 @@ public class LiftingBagAttacher : NetworkBehaviour
             }
 
             // Sunucuya balon takma isteği gönder
-            NetworkObject heldNetObj = held.GetComponent<NetworkObject>();
-            if (heldNetObj != null)
+            NetworkObject targetNetObj = targetItem.GetComponent<NetworkObject>();
+            if (targetNetObj != null)
             {
-                ServerAttachBag(heldNetObj);
+                ServerAttachBag(targetNetObj);
             }
             return;
         }
 
-        // Durum 2: Eşya tutmuyorsak → yakındaki pompalanabilir balonu bul ve mini-game başlat
+        // Durum 2: Eşya hedeflenmiyorsa → yakındaki pompalanabilir balonu bul ve mini-game başlat
         if (_miniGame != null && !_miniGame.IsActive)
         {
             LiftingBag nearby = FindNearbyPumpableBag();
@@ -180,10 +195,9 @@ public class LiftingBagAttacher : NetworkBehaviour
             return;
         }
 
-        // Spawn pozisyonunu eşyanın üst noktasına hesapla (doğru yerde doğsun)
-        Collider itemCol = grabbable.GetComponent<Collider>();
-        Vector3 spawnOffset = Vector3.up * (itemCol != null ? itemCol.bounds.extents.y + 0.3f : 1f);
-        Vector3 spawnPos = grabbable.transform.position + spawnOffset;
+        // Spawn pozisyonunu eşyanın lokal koordinatlarında sadece yukarıya (Y) ayarlıyoruz.
+        // LiftingBag.PositionOnItem kendi offset'ini kendisi hesaplayıp düzeltecek.
+        Vector3 spawnPos = grabbable.transform.position + Vector3.up * 1f;
 
         NetworkObject bagNob = PoolManager.Instance.SpawnNetwork(
             bagPrefab,

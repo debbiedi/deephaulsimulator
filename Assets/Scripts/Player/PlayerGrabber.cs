@@ -181,6 +181,12 @@ public class PlayerGrabber : NetworkBehaviour
             GrabbableObject grabbable = hit.collider.GetComponent<GrabbableObject>();
             if (grabbable != null)
             {
+                if (grabbable.AttachedBagCount > 0)
+                {
+                    Debug.Log("Bu eşyaya balon takılı, taşınamaz.");
+                    return;
+                }
+
                 heldObject = grabbable;
                 heldRb = grabbable.GetComponent<Rigidbody>();
                 

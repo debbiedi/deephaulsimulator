@@ -58,6 +58,7 @@ public class LiftingBag : NetworkBehaviour
     private Rigidbody _targetRb;
     private float _waterSurfaceY;
     private float _attachTimer;
+    private float _ascendTimer;
     private Vector3 _followOffset;
 
     // --- Balon mesh (BlendShape animasyonu) ---
@@ -103,6 +104,7 @@ public class LiftingBag : NetworkBehaviour
         State.Value = LiftingBagState.Attaching;
         ActivePumperCount.Value = 0;
         _attachTimer = 0f;
+        _ascendTimer = 0f;
 
         // Hedef eşyayı tüm clientlara senkronize et
         NetworkObject itemNetObj = item.GetComponent<NetworkObject>();
@@ -139,7 +141,10 @@ public class LiftingBag : NetworkBehaviour
 
             // Hemen doğru pozisyona konumla (spawn pozisyonunda beklemesin)
             if (_targetItem != null)
-                transform.position = _targetItem.transform.position + _followOffset;
+            {
+                transform.position = _targetItem.transform.TransformPoint(_followOffset);
+                transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+            }
         }
     }
 
@@ -151,18 +156,37 @@ public class LiftingBag : NetworkBehaviour
     {
         if (_targetItem == null) return;
 
-        // Eşyanın üst noktası + küçük offset
-        Bounds bounds = _targetItem.GetComponent<Collider>().bounds;
-        float yOffset = bounds.extents.y + 0.3f;
+        // Orijinal objenin bounding box'unu bularak, objenin "Dünya(World)" merkezini ve en üst noktasını tespit edelim
+        Collider col = _targetItem.GetComponentInChildren<Collider>();
+        Vector3 worldTopPoint;
 
-        // Çoklu balon durumunda yatay offset ekle
+        if (col != null)
+        {
+            // Kutunun fiziksel dünyadaki tam orta noktası + kutunun yüksekliğinin yarısı = KUTUNUN TAM TEPESİ (Dünya koordinatlarında)
+            worldTopPoint = col.bounds.center + (Vector3.up * col.bounds.extents.y);
+        }
+        else
+        {
+            worldTopPoint = _targetItem.transform.position + Vector3.up * 1f;
+        }
+
+        // Balonun balon model pivotuna da bağlı olarak havada durması gereken minik ekstra boşluk
+        worldTopPoint += Vector3.up * 0.4f;
+
+        // Çoklu balon durumunda yatay offset ekle (Dünya koordinatında sağa/sola)
         int bagIndex = _targetItem.AttachedBagCount - 1;
         float xOffset = bagIndex * 0.6f - (_targetItem.requiredBagCount - 1) * 0.3f;
+        worldTopPoint += new Vector3(xOffset, 0f, 0f);
 
-        // Parenting YAPMA (NetworkTransform ile çakışır) → offset kaydet, her frame takip et
-        _followOffset = new Vector3(xOffset, yOffset, 0f);
-        transform.position = _targetItem.transform.position + _followOffset;
-        transform.rotation = Quaternion.identity;
+        // ŞİMDİ asıl kritik yer: Bulduğumuz bu DÜNYA noktasını, eşyanın LOKAL eksenine geri çevirmeliyiz.
+        // Böylece eşya fizik motoruyla yuvarlandığında balon da o "göreceli" lokal noktada yapışık kalmaya devam eder.
+        _followOffset = _targetItem.transform.InverseTransformPoint(worldTopPoint);
+
+        // Başlangıç pozisyonunu ata
+        transform.position = _targetItem.transform.TransformPoint(_followOffset);
+        // NOT: Model dosyası import edilirken eksenleri dönük geldiyse, onu düzeltmek için rotasyon ekleyelim.
+        // Orijinal model X ekseni etrafında 90 veya -90 dönük olabilir. Bu yüzden dik durmasını sağlayacak sabit bir rotasyon veriyoruz:
+        transform.rotation = Quaternion.Euler(90f, 0f, 0f);
     }
 
     void Update()
@@ -192,7 +216,11 @@ public class LiftingBag : NetworkBehaviour
         if (_targetItem == null) return;
         if (State.Value == LiftingBagState.Detached) return;
 
-        transform.position = _targetItem.transform.position + _followOffset;
+        // Balonu objenin dönüşüne göre konumlandır ama kendisini her zaman YUKARI doğru döndür!
+        // Eğer kanca yukarı bakıyorsa bu değeri tersine (-90 yerine 90 veya tam tersi) çevirmemiz gerekir.
+        transform.position = _targetItem.transform.TransformPoint(_followOffset);
+        // Kancanın aşağı bakması için X eksenini 90 olarak güncelliyoruz.
+        transform.rotation = Quaternion.Euler(90f, 0f, 0f);
     }
 
     void FixedUpdate()
@@ -241,19 +269,29 @@ public class LiftingBag : NetworkBehaviour
 
     private void UpdateInflating()
     {
+        // Balon biraz şişmişse kaldırma kuvveti uygula
+        if (InflationLevel.Value > 0.05f)
+        {
+            ApplyBuoyancy();
+        }
+
+        // Eğer eşya zaten yerden kesilmiş ve yukarı doğru çıkıyorsa (yeterli kuvvete ulaşmışsa),
+        // şişirmeyi durdur ve direkt Inflated state'ine geçirerek minigame'i bitir.
+        if (_targetRb != null && _targetRb.linearVelocity.y > 0.5f)
+        {
+            if (_targetItem != null && _targetItem.HasEnoughBags)
+            {
+                State.Value = LiftingBagState.Inflated;
+                return;
+            }
+        }
+
         // Aktif pompalayan yoksa Paused'a geç
         if (ActivePumperCount.Value == 0 && _recentPumpers.Count == 0)
         {
             State.Value = LiftingBagState.Paused;
             return;
         }
-
-        // Balon biraz şişmişse kaldırma kuvveti uygula
-        if (InflationLevel.Value > 0.05f)
-        {
-            ApplyBuoyancy();
-        }
-        CheckSurface();
     }
 
     private void UpdatePaused()
@@ -266,14 +304,21 @@ public class LiftingBag : NetworkBehaviour
         {
             ApplyBuoyancy();
         }
-
-        CheckSurface();
     }
 
     private void UpdateInflated()
     {
         ApplyBuoyancy();
-        CheckSurface();
+
+        // Tam 6 saniye boyunca yukarı çıktıktan sonra direkt yüzeye ulaşmış gibi davran (yok olup gemiye gitmesi için)
+        // Yüzeyin nerede olduğunu (su sınırını) umursamıyoruz, süreyi bekliyoruz.
+        _ascendTimer += Time.fixedDeltaTime;
+        if (_ascendTimer >= 6f)
+        {
+            State.Value = LiftingBagState.Floating;
+            if (_targetRb != null) _targetRb.linearVelocity *= 0.3f;
+            NotifyShipCollector();
+        }
     }
 
     private void UpdateFloating()
@@ -320,6 +365,21 @@ public class LiftingBag : NetworkBehaviour
             Vector3 vel = _targetRb.linearVelocity;
             vel.y = 2f;
             _targetRb.linearVelocity = vel;
+        }
+
+        // --- Su Altı Yalpalama (Wobble) Efekti ---
+        // Sadece kayda değer bir şekilde yukarı çıkıyorsa sallanma başlasın
+        if (_targetRb.linearVelocity.y > 0.1f)
+        {
+            float time = Time.time;
+            float mass = _targetRb.mass;
+            
+            // X ve Z eksenlerinde farklı hızlarda (kaotik ve doğal hissettirmesi için) sallanma kuvveti oluştur
+            float swayForceX = Mathf.Sin(time * 2.5f) * mass * 1.2f;
+            float swayForceZ = Mathf.Cos(time * 1.8f) * mass * 1.2f;
+
+            // Objeye sağa sola yumuşak itiş gücü ver
+            _targetRb.AddForce(new Vector3(swayForceX, 0f, swayForceZ), ForceMode.Force);
         }
     }
 
@@ -384,6 +444,17 @@ public class LiftingBag : NetworkBehaviour
         if (State.Value != LiftingBagState.Inflating && State.Value != LiftingBagState.Paused)
             return;
 
+        // "yükselirken şişirmeye basarsam şişmeye devam ediyor orda şişmemesi lazım"
+        // Eğer obje havaya kalkmaya başladıysa pompa işlemini yoksay ve state'i kilitle.
+        if (_targetRb != null && _targetRb.linearVelocity.y > 0.2f)
+        {
+            if (_targetItem != null && _targetItem.HasEnoughBags)
+            {
+                State.Value = LiftingBagState.Inflated;
+            }
+            return;
+        }
+
         if (sender == null) return;
         int clientId = sender.ClientId;
 
@@ -406,13 +477,13 @@ public class LiftingBag : NetworkBehaviour
         if (_pumpCounts[clientId] >= maxPumpsPerSecond) return;
 
         // Mesafe kontrolü: Pompacı oyuncu eşyaya yeterince yakın mı?
-        // NOT: Balon pozisyonu yerine EŞYA pozisyonunu kullanıyoruz (balon pozisyonu güvenilmez olabilir)
+        // Uzaktan takma işlemi eklendiği için range limitini 55f'e çıkardık.
         NetworkConnection conn = sender;
         if (conn.FirstObject != null)
         {
             Vector3 checkPos = _targetItem != null ? _targetItem.transform.position : transform.position;
             float dist = Vector3.Distance(conn.FirstObject.transform.position, checkPos);
-            if (dist > pumpRange) return;
+            if (dist > 55f) return;
         }
 
         // Pompayı uygula
@@ -457,9 +528,19 @@ public class LiftingBag : NetworkBehaviour
     /// </summary>
     private void UpdateVisualScale()
     {
-        if (bagRenderer == null) return;
-        // BlendShape: 0 = sönük, 100 = tam şiş (InflationLevel 0-1 arası)
-        bagRenderer.SetBlendShapeWeight(blendShapeIndex, InflationLevel.Value * 100f);
+        if (bagRenderer == null || bagRenderer.sharedMesh == null) return;
+        if (bagRenderer.sharedMesh.blendShapeCount == 0) return;
+
+        // Modelin "SonukHal" (Deflated State) blendshape'i: 100 = Sönük, 0 = Şişkin.
+        // Başlangıçta (InflationLevel = 0) değer 100 olmalı. Pompalamayla (InflationLevel = 1) değer 0'a inmeli.
+        float targetWeight = (1f - InflationLevel.Value) * 100f;
+        
+        // HATA ÖNLEME: Eğer editörden index yanlışlıkla çok yüksek girildiyse sınırla.
+        int safeIndex = Mathf.Clamp(blendShapeIndex, 0, bagRenderer.sharedMesh.blendShapeCount - 1);
+        bagRenderer.SetBlendShapeWeight(safeIndex, targetWeight);
+
+        // DİKKAT: Ölçeklemeyi (localScale) koddan siliyoruz! 
+        // Çünkü BlendShape zaten şişme/sönme yapıyor ve senin inspector'da belirlediğin Scale (8,8,8) değerini bozuyordu.
     }
 
     // ==================== SÖKME / TEMİZLEME ====================

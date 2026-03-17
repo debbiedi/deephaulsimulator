@@ -38,12 +38,18 @@ public class LiftingBagAudio : MonoBehaviour
     public float effectVolume = 0.8f;
 
     private AudioSource _audioSource;
+    private AudioSource _pumpAudioSource; // Sadece pompa sesini çalıp üst üste binmesini engelleyecek özel kaynak.
 
     private void Awake()
     {
         _audioSource = GetComponent<AudioSource>();
         _audioSource.playOnAwake = false;
         _audioSource.spatialBlend = 0f; // 2D ses (kendi oyuncumuz için)
+
+        // Pompa için ayrı bir geçici AudioSource ekleyelim (seslerin çirkin şekilde üst üste birikmemesi için)
+        _pumpAudioSource = gameObject.AddComponent<AudioSource>();
+        _pumpAudioSource.playOnAwake = false;
+        _pumpAudioSource.spatialBlend = 0f;
     }
 
     private void Start()
@@ -68,7 +74,12 @@ public class LiftingBagAudio : MonoBehaviour
 
     private void OnPumped()
     {
-        PlayClip(pumpClip, pumpVolume);
+        if (pumpClip != null && _pumpAudioSource != null)
+        {
+            // Eğer oyuncu çok çok hızlı basarsa ([E]'ye taramalı gibi basma), sesler kulak tırmalamasın diye hafif pitch (ton) farklılığı katıyoruz
+            _pumpAudioSource.pitch = Random.Range(0.95f, 1.05f); 
+            _pumpAudioSource.PlayOneShot(pumpClip, pumpVolume);
+        }
     }
 
     private void OnMiniGameStarted()
