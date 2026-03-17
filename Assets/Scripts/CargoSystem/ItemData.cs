@@ -12,6 +12,7 @@ public struct ItemData
     public float BasePrice;
     public float CurrentPrice;
     public float Weight;
+    public RarityTier Rarity;
 
     public ItemData(GrabbableObject grabbable)
     {
@@ -20,5 +21,6 @@ public struct ItemData
         BasePrice = grabbable.basePrice;
         CurrentPrice = grabbable.currentPrice;
         Weight = grabbable.weight;
+        Rarity = grabbable.rarityTier;
     }
 }

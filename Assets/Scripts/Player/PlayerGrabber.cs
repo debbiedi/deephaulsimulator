@@ -32,6 +32,10 @@ public class PlayerGrabber : NetworkBehaviour
     [Tooltip("Çantaya emilme animasyon süresi (saniye)")]
     public float bagAnimationDuration = 0.4f;
 
+    [Header("Hızlı Satış")]
+    [Tooltip("Oyuncunun kişisel cüzdanı (aynı player üzerinde)")]
+    public PlayerWallet playerWallet;
+
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
     private bool originalUseGravity;
@@ -90,6 +94,16 @@ public class PlayerGrabber : NetworkBehaviour
             else
             {
                 Release();
+            }
+        }
+
+        // --- HIZLI SATIŞ [Q] ---
+        if (heldObject != null && Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame)
+        {
+            if (heldObject.rarityTier == RarityTier.Hurda)
+            {
+                QuickSell();
+                return;
             }
         }
 
@@ -284,6 +298,64 @@ public class PlayerGrabber : NetworkBehaviour
 
         heldObject = null;
         heldRb = null;
+    }
+
+    /// <summary>
+    /// Hurda eşyayı anında sat. [Q] tuşuyla tetiklenir.
+    /// Eşya despawn olur, para kişisel cüzdana eklenir.
+    /// </summary>
+    void QuickSell()
+    {
+        if (heldObject == null) return;
+
+        NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+        if (netObj == null) return;
+
+        // Yerçekimini geri yükle (despawn öncesi temizlik)
+        if (heldRb != null)
+            heldRb.useGravity = originalUseGravity;
+
+        // Sunucuya hızlı satış isteği gönder
+        ServerQuickSell(netObj);
+
+        // Client tarafı referansları temizle
+        heldObject = null;
+        heldRb = null;
+    }
+
+    /// <summary>
+    /// Sunucu tarafı: Hızlı satış doğrulama, para ekleme ve despawn.
+    /// </summary>
+    [ServerRpc(RequireOwnership = true)]
+    private void ServerQuickSell(NetworkObject itemNetObj)
+    {
+        if (itemNetObj == null) return;
+
+        GrabbableObject grabbable = itemNetObj.GetComponent<GrabbableObject>();
+        if (grabbable == null) return;
+
+        // Sadece Hurda eşyalar hızlı satılabilir
+        if (grabbable.rarityTier != RarityTier.Hurda) return;
+
+        float sellPrice = grabbable.currentPrice;
+        string itemName = grabbable.itemName;
+
+        // Kişisel cüzdana para ekle
+        if (playerWallet != null)
+            playerWallet.AddMoney(sellPrice);
+
+        // Ortak kasaya da ekle
+        if (TeamTreasury.Instance != null)
+            TeamTreasury.Instance.AddToTreasury(sellPrice);
+
+        Debug.Log($"[QuickSell] '{itemName}' hızlı satıldı! +{sellPrice:F0}₺");
+
+        // Satış bildirimini oyuncuya gönder
+        if (playerWallet != null)
+            playerWallet.TargetNotifyQuickSell(base.Owner, sellPrice, itemName);
+
+        // Eşyayı ağdan despawn et
+        base.ServerManager.Despawn(itemNetObj);
     }
 
     void Release()
