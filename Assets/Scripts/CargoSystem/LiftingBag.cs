@@ -80,6 +80,8 @@ public class LiftingBag : NetworkBehaviour
     public GrabbableObject TargetItem => _targetItem;
     public float WaterSurfaceY => _waterSurfaceY;
 
+   
+
     private void Awake()
     {
         // Balon collider'ını Trigger yap → fizik çakışması olmaz (eşyayı itmez/titretmez)
