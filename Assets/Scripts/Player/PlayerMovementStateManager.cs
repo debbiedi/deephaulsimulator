@@ -267,12 +267,11 @@ public class PlayerMovementStateManager : NetworkBehaviour
         _groundedTimer = 0f;
         _swimVerticalVelocity = 0f;
 
-        // Suya girerken dikey hızı sıfırla (yukarı fırlamayı engelle)
-        if (characterController != null)
+        // Suya girerken dikey hızı ve zıplama animasyonlarını anında sıfırla
+        if (controller != null)
         {
-            // CharacterController'ın velocity'sini doğrudan değiştiremeyiz,
-            // ama ThirdPersonController'ın gravity değerini sıfırlayarak etkisini kaldırırız
-            controller.Gravity = 0f; // Geçici olarak yerçekimini kaldır
+            controller.Gravity = 0f;
+            controller.ResetVerticalVelocity(); // Zıplama hızı + Jump/FreeFall animasyonları sıfırlanır
         }
 
         SetState(PlayerMovementState.Swimming, forceChange: true);

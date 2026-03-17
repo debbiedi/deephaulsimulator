@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 5282061229279622443}
   - component: {fileID: 996617291361729787}
   - component: {fileID: 5223322220101253547}
+  - component: {fileID: 4817007003201502150}
   m_Layer: 0
   m_Name: Cube
   m_TagString: Untagged
@@ -71,7 +72,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 674a678258689314097b058671d2ae2d, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -161,6 +162,7 @@ MonoBehaviour:
   itemName: "y\xFCz\xFCk"
   itemId: "test_y\xFCz\xFCk"
   itemSize: 2
+  rarityTier: 0
   weight: 8
   basePrice: 250
   currentPrice: 0
@@ -198,7 +200,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584279177364553269
+  _initializedTimestamp: -8584278428772959424
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -269,3 +271,18 @@ MonoBehaviour:
     X: 0
     Y: 0
     Z: 0
+--- !u!114 &4817007003201502150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2115416609923025553}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 35bef56f6c1d1d642b554c5e48686800, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::RarityVisualEffect
+  rarityDatabase: {fileID: 11400000, guid: debf76a8cda599f43bfcc45b73d28c79, type: 2}
+  targetRenderers: []
+  onlyUnderwaterGlow: 1

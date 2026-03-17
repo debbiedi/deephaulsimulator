@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9112883fb3de6014eaf4c542fd3d26f8, type: 3}
+  m_Name: Rarity_Hazine
+  m_EditorClassIdentifier: Assembly-CSharp::RarityData
+  tier: 4
+  displayNameTR: Hazine
+  displayNameEN: Relic
+  descriptionTR: 
+  rarityColor: {r: 1, g: 0.84313726, b: 0, a: 1}
+  glowColorHDR: {r: 8, g: 5.436341, b: 0, a: 1}
+  vfxPrefab: {fileID: 0}
+  glowIntensity: 2.5
+  glowPulseSpeed: 2
+  priceMultiplier: 8
+  fragilityMultiplier: 2.5

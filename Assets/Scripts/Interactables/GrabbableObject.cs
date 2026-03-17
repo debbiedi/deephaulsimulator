@@ -13,6 +13,10 @@ public class GrabbableObject : NetworkBehaviour
     [Header("Size Classification")]
     public ItemSize itemSize = ItemSize.Large; // Varsayılan: Large (mevcut davranış korunur)
 
+    [Header("Rarity")]
+    [Tooltip("Bu eşyanın nadirlik seviyesi")]
+    public RarityTier rarityTier = RarityTier.Siradan;
+
     [Header("Weight")]
     public float weight = 1f; // Kilogram cinsinden ağırlık
 

@@ -2951,6 +2951,7 @@ GameObject:
   - component: {fileID: 1516793231167294178}
   - component: {fileID: 2823908585404832651}
   - component: {fileID: 4336225408076550258}
+  - component: {fileID: 4465927812540762583}
   m_Layer: 6
   m_Name: PlayerArmature
   m_TagString: Player
@@ -3234,6 +3235,7 @@ MonoBehaviour:
   bagCollectDistance: 1
   bagTargetPoint: {fileID: 9091201036885235878}
   bagAnimationDuration: 0.4
+  playerWallet: {fileID: 4465927812540762583}
 --- !u!114 &8676302997163695490
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3458,6 +3460,21 @@ MonoBehaviour:
   _networkObjectCache: {fileID: 8221100990702153553}
   maxWeight: 20
   maxSlots: 30
+--- !u!114 &4465927812540762583
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7722234527922812093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a31f8df0dfaafb1428d91aea27801930, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerWallet
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 8221100990702153553}
+  _networkObjectCache: {fileID: 0}
 --- !u!1 &7760972134395960278
 GameObject:
   m_ObjectHideFlags: 0

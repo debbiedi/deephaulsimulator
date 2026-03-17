@@ -224,10 +224,14 @@ namespace StarterAssets
             Grounded = Physics.CheckSphere(spherePosition, GroundedRadius, GroundLayers,
                 QueryTriggerInteraction.Ignore);
 
+            // Yüzerken Grounded'ı true olarak zorla (animator FreeFall geçişini engellemek için)
+            bool isSwimmingState = _movementStateManager != null && _movementStateManager.IsSwimming;
+            bool animGrounded = Grounded || isSwimmingState;
+
             // update animator if using character
             if (_hasAnimator)
             {
-                _animator.SetBool(_animIDGrounded, Grounded);
+                _animator.SetBool(_animIDGrounded, animGrounded);
             }
         }
 
@@ -453,6 +457,23 @@ namespace StarterAssets
             }
         }
 
+        /// <summary>
+        /// Suya girerken dikey hızı ve zıplama/düşme animasyonlarını anında sıfırlar.
+        /// PlayerMovementStateManager.EnterWater() tarafından çağrılır.
+        /// </summary>
+        public void ResetVerticalVelocity()
+        {
+            _verticalVelocity = 0f;
+            _jumpTimeoutDelta = 0f;
+            _fallTimeoutDelta = FallTimeout;
+
+            if (_hasAnimator)
+            {
+                _animator.SetBool(_animIDJump, false);
+                _animator.SetBool(_animIDFreeFall, false);
+            }
+        }
+
         private static float ClampAngle(float lfAngle, float lfMin, float lfMax)
         {
             if (lfAngle < -360f) lfAngle += 360f;
@@ -476,9 +497,8 @@ namespace StarterAssets
 
             if (isSwimming)
             {
-                // Yatay yüzme hızı
-                float swimAnimSpeed = new Vector3(_controller.velocity.x, 0f, _controller.velocity.z).magnitude;
-                _animator.SetFloat(_animIDSwimSpeed, swimAnimSpeed, 0.1f, Time.deltaTime);
+                // Yatay yüzme hızı (_speed Move() tarafından her frame hesaplanır)
+                _animator.SetFloat(_animIDSwimSpeed, _speed, 0.1f, Time.deltaTime);
 
                 // Dikey yüzme değeri: -1 (aşağı), 0 (idle), +1 (yukarı)
                 float verticalTarget = 0f;
