@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using FishNet.Object;
+using System;
 
 public class PlayerGrabber : NetworkBehaviour
 {
@@ -34,6 +35,15 @@ public class PlayerGrabber : NetworkBehaviour
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
     private bool originalUseGravity;
+
+    // --- Public Erişimler (LiftingBagAttacher için) ---
+    public GrabbableObject HeldObject => heldObject;
+    public bool IsCollectingToBag => _isCollectingToBag;
+
+    /// <summary>
+    /// Eşya bırakıldığında tetiklenir (mini-game iptal tetikleyici).
+    /// </summary>
+    public event Action OnItemReleased;
 
     // Çantaya emilme animasyonu state
     private bool _isCollectingToBag;
@@ -171,6 +181,12 @@ public class PlayerGrabber : NetworkBehaviour
             GrabbableObject grabbable = hit.collider.GetComponent<GrabbableObject>();
             if (grabbable != null)
             {
+                if (grabbable.AttachedBagCount > 0)
+                {
+                    Debug.Log("Bu eşyaya balon takılı, taşınamaz.");
+                    return;
+                }
+
                 heldObject = grabbable;
                 heldRb = grabbable.GetComponent<Rigidbody>();
                 
@@ -277,6 +293,9 @@ public class PlayerGrabber : NetworkBehaviour
             heldRb = null;
             return;
         }
+
+        // Eşya bırakıldığını bildir (LiftingBagAttacher mini-game iptali için)
+        OnItemReleased?.Invoke();
 
         // --- KEMER ÇANTASI TOPLAMA KONTROLÜ ---
         // Eşya küçük mü VE yeterince yakınsa çantaya emilme animasyonu başlat

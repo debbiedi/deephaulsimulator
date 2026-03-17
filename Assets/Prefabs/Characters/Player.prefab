@@ -436,6 +436,10 @@ GameObject:
   - component: {fileID: 5609695268748960561}
   - component: {fileID: 8221100990702153553}
   - component: {fileID: 385577741426249413}
+  - component: {fileID: 9112098109637317669}
+  - component: {fileID: 6834722109221266224}
+  - component: {fileID: 1362468459765117451}
+  - component: {fileID: 7448725248490455166}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -483,9 +487,13 @@ MonoBehaviour:
   <PredictedOwner>k__BackingField: {fileID: 0}
   NetworkBehaviours:
   - {fileID: 385577741426249413}
+  - {fileID: 9112098109637317669}
+  - {fileID: 6834722109221266224}
   - {fileID: 6375726268877256123}
   - {fileID: 8676302997163695490}
   - {fileID: 2364561402664506632}
+  - {fileID: 6359247056334615463}
+  - {fileID: 4336225408076550258}
   - {fileID: 3868330913114052495}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
@@ -497,7 +505,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584280705683874285
+  _initializedTimestamp: -8584278684018037968
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -537,6 +545,162 @@ MonoBehaviour:
   _componentIndexCache: 0
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
+--- !u!114 &9112098109637317669
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1264567324698689261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 499053dde96861e4692dc60eecaa7902, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LiftingBagAttacher
+  _componentIndexCache: 1
+  _addedNetworkObject: {fileID: 8221100990702153553}
+  _networkObjectCache: {fileID: 8221100990702153553}
+  playerGrabber: {fileID: 6375726268877256123}
+  movementStateManager: {fileID: 8676302997163695490}
+  bagPrefab: {fileID: 45701637677784178, guid: 4d5caf12c0bf27b4a92790b6aff37cf4, type: 3}
+  startingBagCount: 3
+  attachKey: 20
+--- !u!114 &6834722109221266224
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1264567324698689261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: eea5b8e88b35a9249a93dc1082067a99, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::InflationMiniGame
+  _componentIndexCache: 2
+  _addedNetworkObject: {fileID: 8221100990702153553}
+  _networkObjectCache: {fileID: 8221100990702153553}
+  pumpKey: 19
+  maxPumpsPerSecond: 8
+  timeout: 15
+  cancelKey: 60
+--- !u!82 &1362468459765117451
+AudioSource:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1264567324698689261}
+  m_Enabled: 1
+  serializedVersion: 4
+  OutputAudioMixerGroup: {fileID: 0}
+  m_audioClip: {fileID: 0}
+  m_Resource: {fileID: 0}
+  m_PlayOnAwake: 1
+  m_Volume: 1
+  m_Pitch: 1
+  Loop: 0
+  Mute: 0
+  Spatialize: 0
+  SpatializePostEffects: 0
+  Priority: 128
+  DopplerLevel: 1
+  MinDistance: 1
+  MaxDistance: 500
+  Pan2D: 0
+  rolloffMode: 0
+  BypassEffects: 0
+  BypassListenerEffects: 0
+  BypassReverbZones: 0
+  rolloffCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    - serializedVersion: 3
+      time: 1
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  panLevelCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  spreadCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  reverbZoneMixCustomCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0.33333334
+      outWeight: 0.33333334
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+--- !u!114 &7448725248490455166
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1264567324698689261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f63bce7edfc38a54f92b57cedee4a876, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::LiftingBagAudio
+  miniGame: {fileID: 6834722109221266224}
+  pumpClip: {fileID: 8300000, guid: b40c27f8daa394561a2b11ae31c11915, type: 3}
+  attachClip: {fileID: 8300000, guid: 3843d1910e5684d1388515492da6508a, type: 3}
+  inflatedClip: {fileID: 0}
+  surfaceClip: {fileID: 0}
+  collectClip: {fileID: 0}
+  pumpVolume: 0.5
+  effectVolume: 0.8
 --- !u!1 &1709388102195491338
 GameObject:
   m_ObjectHideFlags: 0
@@ -901,7 +1065,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34ad3feecd53141f481aed52f4d1baf7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraModeManager
-  _componentIndexCache: 4
+  _componentIndexCache: 8
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   tpsVirtualCamera: {fileID: 6839663338498295139}
@@ -3050,7 +3214,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9f1d128535af84a9b936fc411fa70b02, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerGrabber
-  _componentIndexCache: 1
+  _componentIndexCache: 3
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   playerCamera: {fileID: 5104582788824523123}
@@ -3082,7 +3246,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 200c6cff4e47daa4494e6f4205c8a036, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovementStateManager
-  _componentIndexCache: 2
+  _componentIndexCache: 4
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   controller: {fileID: 7194794387423458353}
@@ -3107,7 +3271,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2836e36774ca1c4bbbee976e17b649c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Transforming.NetworkTransform
-  _componentIndexCache: 3
+  _componentIndexCache: 5
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   _componentConfiguration: 0
@@ -3153,9 +3317,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e8cac635f24954048aad3a6ff9110beb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Animating.NetworkAnimator
-  _componentIndexCache: 255
+  _componentIndexCache: 6
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
   IgnoredParameters: []
   _animator: {fileID: 8346895651908161028}
   _synchronizeWhenDisabled: 0
@@ -3289,9 +3453,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b0df4d80a8093b4395736aa4ab5f5da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeltBagInventory
-  _componentIndexCache: 255
+  _componentIndexCache: 7
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
   maxWeight: 20
   maxSlots: 30
 --- !u!1 &7760972134395960278

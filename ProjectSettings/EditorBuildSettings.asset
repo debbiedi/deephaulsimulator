@@ -15,6 +15,8 @@ EditorBuildSettings:
     path: Assets/Scenes/Sahne1.unity
     guid: dbed5514a3dfb415eadb166dd53cdf6d
   m_configObjects:
+    com.unity.addressableassets: {fileID: 11400000, guid: 3142e76d4090649aeb31fe63f422cfc0, type: 2}
     com.unity.input.settings: {fileID: 11400000, guid: 9e7be553448fa2546aea5752021cbcf7, type: 2}
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
+    com.unity.localization.settings: {fileID: 11400000, guid: 06d98c26021ad49bd92d064114a7f16f, type: 2}
   m_UseUCBPForAssetBundles: 0
