@@ -284,6 +284,7 @@ GameObject:
   - component: {fileID: 8754830983696580124}
   - component: {fileID: 8057795214177851648}
   - component: {fileID: 6727728831401887505}
+  - component: {fileID: 9151041694118026185}
   m_Layer: 0
   m_Name: Drone
   m_TagString: Untagged
@@ -371,9 +372,11 @@ MonoBehaviour:
   obstacleMask:
     serializedVersion: 2
     m_Bits: 320
-  teleportDistance: 30
-  breadcrumbChaseDistance: 12
+  sensorRange: 4
   avoidanceForce: 2
+  teleportDistance: 30
+  breadcrumbDropDistance: 2
+  breadcrumbChaseDistance: 12
 --- !u!114 &8754830983696580124
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -401,7 +404,7 @@ MonoBehaviour:
   RuntimeChildNetworkBehaviours: []
   _isNetworked: 1
   _isSpawnable: 1
-  _isGlobal: 0
+  _isGlobal: 1
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
@@ -498,3 +501,25 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &9151041694118026185
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 9122218538987658849}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8cac635f24954048aad3a6ff9110beb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FishNet.Runtime::FishNet.Component.Animating.NetworkAnimator
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 8754830983696580124}
+  _networkObjectCache: {fileID: 0}
+  IgnoredParameters: []
+  _animator: {fileID: 6727728831401887505}
+  _synchronizeWhenDisabled: 0
+  _smoothFloats: 1
+  _interpolation: 2
+  _clientAuthoritative: 1
+  _sendToOwner: 0

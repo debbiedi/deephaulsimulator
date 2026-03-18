@@ -138,8 +138,8 @@ public class CarrierDrone : NetworkBehaviour
         _rb.linearDamping = 2f;
         _rb.angularDamping = 5f;
 
-        // Tum rendererlari cache'le
-        _renderers = GetComponentsInChildren<Renderer>();
+        // Tum rendererlari cache'le (true diyerek kapali olanlari da bulur)
+        _renderers = GetComponentsInChildren<Renderer>(true);
     }
 
     private void OnEnable()
@@ -173,6 +173,15 @@ public class CarrierDrone : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
+        
+        // --- LAG/KASMA ÇÖZÜMÜ ---
+        // Eger Server ("Odayi Kuran") degilsek, bizim tarafimizda drone'un fizigi izleyici (kinematik) olmali!
+        // Aksi takdirde, FishNet'in NetworkTransform verisiyle, bu bilgisayardaki fizik moturu her karede kafa kafaya carpisir (kasarak ilerleme efekti)
+        if (!base.IsServerInitialized && _rb != null)
+        {
+            _rb.isKinematic = true;
+        }
+
         CargoItems.OnChange += OnCargoListChanged;
         State.OnChange += OnStateValueChanged;
 
