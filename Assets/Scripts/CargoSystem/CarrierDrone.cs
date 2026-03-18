@@ -180,6 +180,7 @@ public class CarrierDrone : NetworkBehaviour
         if (!base.IsServerInitialized && _rb != null)
         {
             _rb.isKinematic = true;
+            _rb.interpolation = RigidbodyInterpolation.None; // Unity ve FishNet cift interpolasyon cakismasini onle
         }
 
         CargoItems.OnChange += OnCargoListChanged;
@@ -327,25 +328,26 @@ public class CarrierDrone : NetworkBehaviour
 
         // Asagi inis ve takip (kinematik hareket)
         float currentSpeed = verticalSpeed * 1.5f; // Hizli inis
-        transform.position = Vector3.MoveTowards(transform.position, _hoverTargetPos, currentSpeed * Time.fixedDeltaTime);
+        Vector3 nextPos = Vector3.MoveTowards(transform.position, _hoverTargetPos, currentSpeed * Time.fixedDeltaTime);
+        _rb.MovePosition(nextPos);
         
         // Asagi dogru yonelme (sadece gorsel amacli)
-        Vector3 direction = (_hoverTargetPos - transform.position);
+        Vector3 direction = (_hoverTargetPos - nextPos);
         direction.y = 0;
         if (direction.sqrMagnitude > 0.01f)
         {
             Quaternion lookRot = Quaternion.LookRotation(direction.normalized, Vector3.up);
-            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.fixedDeltaTime * 0.05f);
+            _rb.MoveRotation(Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.fixedDeltaTime * 0.05f));
         }
 
-        float dist = Vector3.Distance(transform.position, _hoverTargetPos);
+        float dist = Vector3.Distance(nextPos, _hoverTargetPos);
         if (dist <= arriveDistance)
         {
             // Yerine ulasti - hoverlama basla
             _rb.linearVelocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
             _rb.isKinematic = true;
-            transform.position = _hoverTargetPos;
+            _rb.MovePosition(_hoverTargetPos);
             _hoverTimer = 0f;
             State.Value = DroneState.Hovering;
 
@@ -381,7 +383,7 @@ public class CarrierDrone : NetworkBehaviour
             // Drone oyuncudan cok uzak kalirsa her seyi sifirla ve direk yanina isinla
             if (distToPlayerFull > teleportDistance)
             {
-                transform.position = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0);
+                _rb.position = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0);
                 _breadcrumbs.Clear();
                 _isFollowingBreadcrumbs = false;
                 _currentVelocity = Vector3.zero;
@@ -485,10 +487,11 @@ public class CarrierDrone : NetworkBehaviour
 
             // 4. YUMUŞAK TAKİP VE FİZİK (SMOOTHDAMP)
             float smoothTime = 0.6f; 
-            transform.position = Vector3.SmoothDamp(transform.position, targetPosWithWanderAndAvoidance, ref _currentVelocity, smoothTime, flySpeed);
+            Vector3 nextPos = Vector3.SmoothDamp(transform.position, targetPosWithWanderAndAvoidance, ref _currentVelocity, smoothTime, flySpeed);
+            _rb.MovePosition(nextPos);
 
             // 5. DONUS (ROTATION) - SLERP
-            Vector3 directionToFace = (targetPosWithWanderAndAvoidance - transform.position);
+            Vector3 directionToFace = (targetPosWithWanderAndAvoidance - nextPos);
             directionToFace.y = 0; 
             if (directionToFace.sqrMagnitude > 0.01f)
             {
@@ -500,7 +503,7 @@ public class CarrierDrone : NetworkBehaviour
                 Quaternion tiltOffset = Quaternion.Euler(forwardTilt, 0, sideTilt);
                 Quaternion finalRotation = lookRot * tiltOffset;
 
-                transform.rotation = Quaternion.Slerp(transform.rotation, finalRotation, Time.fixedDeltaTime * rotationSpeed * 0.03f);
+                _rb.MoveRotation(Quaternion.Slerp(transform.rotation, finalRotation, Time.fixedDeltaTime * rotationSpeed * 0.03f));
             }
         }
     }
