@@ -360,41 +360,73 @@ public class PlayerGrabber : NetworkBehaviour
     }
 
     /// <summary>
+    /// Oyuncunun baktığı veya yatay olarak en yakın olduğu (belirli mesafe içinde) drone'u bulur.
+    /// </summary>
+    private CarrierDrone FindTargetDroneForInteraction(float maxDistance)
+    {
+        // 1. Önce kameranın merkezinden raycast atarak bir drone'a bakıp bakmadığımızı kontrol edelim
+        RaycastHit hit;
+        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, maxDistance))
+        {
+            CarrierDrone lookedDrone = hit.collider.GetComponentInParent<CarrierDrone>();
+            if (lookedDrone != null)
+            {
+                return lookedDrone;
+            }
+        }
+
+        // 2. Eğer bir drone'a bakmıyorsak, etrafımızdaki tüm drone'lar arasından en yakın olanı bulalım
+        CarrierDrone targetDrone = null;
+        float closestDist = maxDistance;
+        foreach (var drone in CarrierDrone.ActiveDrones)
+        {
+            if (drone == null || !drone.IsSpawned) continue;
+            
+            float xzDist = Vector2.Distance(
+                new Vector2(transform.position.x, transform.position.z),
+                new Vector2(drone.transform.position.x, drone.transform.position.z));
+                
+            if (xzDist < closestDist)
+            {
+                closestDist = xzDist;
+                targetDrone = drone;
+            }
+        }
+
+        return targetDrone;
+    }
+
+    /// <summary>
     /// Tutulan eşyayı yakındaki drone'a yüklemeyi dener. [G] tuşuyla tetiklenir.
     /// </summary>
     void TryLoadIntoDrone()
     {
         if (heldObject == null) return;
 
-        // Kendi drone'umuza ulas (yoksa veya olu ise yapma)
-        if (_myActiveDrone == null || !_myActiveDrone.IsSpawned)
+        CarrierDrone targetDrone = FindTargetDroneForInteraction(20f);
+
+        if (targetDrone == null)
         {
-            Debug.Log("[PlayerGrabber] Kendi dronunuz bulunmuyor veya su anda uzakta.");
+            Debug.Log("[PlayerGrabber] Yakında veya baktığınız yönde etkileşime girilecek bir drone bulunamadı!");
+            return;
+        }
+
+        if (targetDrone.OwnerClientId.Value != base.Owner.ClientId)
+        {
+            Debug.Log("[PlayerGrabber] HATA: Bu drone size ait değil, eşya yükleyemezsiniz!");
             return;
         }
 
         // Drone yuklenebilir durumda mi?
-        DroneState state = _myActiveDrone.State.Value;
+        DroneState state = targetDrone.State.Value;
         if (state != DroneState.Hovering && state != DroneState.Loading)
         {
-            Debug.Log("[PlayerGrabber] Kendi dronunuz su an esya kabul edemiyor.");
-            return;
-        }
-
-        // Mesafe (yatay XZ ekseninde)
-        Vector3 dronePos = _myActiveDrone.transform.position;
-        float xzDist = Vector2.Distance(
-            new Vector2(transform.position.x, transform.position.z),
-            new Vector2(dronePos.x, dronePos.z));
-
-        if (xzDist > 20f)
-        {
-            Debug.Log("[PlayerGrabber] Drona çok uzaksınız (Mesafe: " + xzDist + ")");
+            Debug.Log("[PlayerGrabber] Seçilen drone su an esya kabul edemiyor.");
             return;
         }
 
         // Client-side ön kontrol (ağırlık)
-        if (_myActiveDrone.CurrentWeight.Value + heldObject.weight > _myActiveDrone.maxCargoWeight)
+        if (targetDrone.CurrentWeight.Value + heldObject.weight > targetDrone.maxCargoWeight)
         {
             Debug.Log("[PlayerGrabber] Drone kargo kapasitesi dolu!");
             return;
@@ -408,7 +440,7 @@ public class PlayerGrabber : NetworkBehaviour
             heldRb.useGravity = originalUseGravity;
 
         // Sunucuya yükleme isteği gönder (drone üzerinden)
-        _myActiveDrone.ServerLoadItem(itemNetObj);
+        targetDrone.ServerLoadItem(itemNetObj);
 
         // Client tarafı referansları temizle
         heldObject = null;
@@ -436,35 +468,26 @@ public class PlayerGrabber : NetworkBehaviour
     }
 
     /// <summary>
-    /// F'ye basıldığında Drone'a bakılıyorsa veya yakındaysa gidiş emri verir.
+    /// F'ye basıldığında bakılan veya en yakındaki Drone'un bize ait olup olmadığını kontrol edip gidiş emri verir.
     /// </summary>
     void TrySendDrone()
     {
-        if (_myActiveDrone == null || !_myActiveDrone.IsSpawned) return;
+        CarrierDrone targetDrone = FindTargetDroneForInteraction(15f);
 
-        // Kameranın merkezinden raycast atarak drone'a bakıp bakmadığımızı kontrol edelim
-        RaycastHit hit;
-        bool isLookingAtDrone = false;
-        
-        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, 30f))
+        if (targetDrone == null)
         {
-            // Vurulan obje drone ise
-            if (hit.collider.GetComponentInParent<CarrierDrone>() == _myActiveDrone)
-            {
-                isLookingAtDrone = true;
-            }
+            Debug.Log("[PlayerGrabber] Etrafta gönderilecek bir drone bulunamadı!");
+            return;
         }
 
-        // Eğer doğrudan bakmıyorsak ama yine de dronun altındaysak/yakınındaysak (opsiyonel serbestlik)
-        float xzDist = Vector2.Distance(
-            new Vector2(transform.position.x, transform.position.z),
-            new Vector2(_myActiveDrone.transform.position.x, _myActiveDrone.transform.position.z));
-            
-        if (isLookingAtDrone || xzDist < 15f)
+        if (targetDrone.OwnerClientId.Value != base.Owner.ClientId)
         {
-            // Gönder
-            _myActiveDrone.ServerSendAway();
+            Debug.Log("[PlayerGrabber] HATA: Göndermeye çalıştığınız drone başkasına ait!");
+            return;
         }
+
+        // Gönder
+        targetDrone.ServerSendAway();
     }
 
     [ServerRpc]
