@@ -19,7 +19,7 @@ MonoBehaviour:
   rarityColor: {r: 1, g: 1, b: 1, a: 1}
   glowColorHDR: {r: 1, g: 1, b: 1, a: 1}
   vfxPrefab: {fileID: 0}
-  glowIntensity: 0.4
-  glowPulseSpeed: 0.5
+  glowIntensity: 0
+  glowPulseSpeed: 0
   priceMultiplier: 1
   fragilityMultiplier: 1
