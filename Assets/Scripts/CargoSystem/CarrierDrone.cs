@@ -341,7 +341,17 @@ public class CarrierDrone : NetworkBehaviour
         _rb.MovePosition(nextPos);
         
         // Asagi dogru yonelme (sadece gorsel amacli)
-        Vector3 direction = (_hoverTargetPos - nextPos);
+        Vector3 direction = transform.forward;
+        if (_trackingTarget != null)
+        {
+            // İnerken oyuncuya baksın
+            direction = (_trackingTarget.position - transform.position);
+        }
+        else
+        {
+            direction = (_hoverTargetPos - nextPos);
+        }
+
         direction.y = 0;
         if (direction.sqrMagnitude > 0.01f)
         {
@@ -500,8 +510,20 @@ public class CarrierDrone : NetworkBehaviour
             _rb.MovePosition(nextPos);
 
             // 5. DONUS (ROTATION) - SLERP
-            Vector3 directionToFace = (targetPosWithWanderAndAvoidance - nextPos);
-            directionToFace.y = 0; 
+            Vector3 directionToFace = transform.forward; // Varsayılan olarak eski yönü koru
+
+            if (_trackingTarget != null && _currentVelocity.sqrMagnitude > 0.1f)
+            {
+                // Sadece hareket halindeyken (hız 0.1'den büyükse) karaktere (oyuncuya) bak
+                directionToFace = (_trackingTarget.position - transform.position);
+            }
+            else if (_trackingTarget == null)
+            {
+                directionToFace = (targetPosWithWanderAndAvoidance - nextPos);
+            }
+
+            directionToFace.y = 0; // Sadece Y ekseninde (sağa-sola) dönsün, aşağı/yukarı eğilmesin
+            
             if (directionToFace.sqrMagnitude > 0.01f)
             {
                 Quaternion lookRot = Quaternion.LookRotation(directionToFace.normalized, Vector3.up);
