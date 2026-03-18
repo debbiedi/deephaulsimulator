@@ -47,6 +47,12 @@ public class PlayerMovementStateManager : NetworkBehaviour
     [Tooltip("Su altında yürürken Space tuşuyla yüzmeye geçer")]
     public bool spaceToSwimFromWalk = true;
 
+    [Header("Yüzme Tuşları")]
+    [Tooltip("Yukarı yüzme tuşu")]
+    public Key ascendKey = Key.Space;
+    [Tooltip("Aşağı dalma tuşu")]
+    public Key descendKey = Key.LeftCtrl;
+
     [Header("State Geçiş Ayarları")]
     [Tooltip("State değişiklikleri arasındaki minimum bekleme süresi (saniye)")]
     public float stateChangeCooldown = 0.5f;
@@ -438,23 +444,15 @@ public class PlayerMovementStateManager : NetworkBehaviour
     /// </summary>
     public bool GetAscendInput()
     {
-#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
-        return Keyboard.current != null && Keyboard.current.spaceKey.isPressed;
-#else
-        return Input.GetKey(KeyCode.Space);
-#endif
+        return Keyboard.current != null && Keyboard.current[ascendKey].isPressed;
     }
 
     /// <summary>
-    /// Aşağı dalma inputu (Left Ctrl tuşu).
+    /// Aşağı dalma inputu.
     /// </summary>
     public bool GetDescendInput()
     {
-#if ENABLE_INPUT_SYSTEM && !ENABLE_LEGACY_INPUT_MANAGER
-        return Keyboard.current != null && Keyboard.current.leftCtrlKey.isPressed;
-#else
-        return Input.GetKey(KeyCode.LeftControl);
-#endif
+        return Keyboard.current != null && Keyboard.current[descendKey].isPressed;
     }
 
     // ==================== Public Yardımcılar ====================

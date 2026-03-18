@@ -35,6 +35,14 @@ public class PlayerGrabber : NetworkBehaviour
     [Header("Hızlı Satış")]
     [Tooltip("Oyuncunun kişisel cüzdanı (aynı player üzerinde)")]
     public PlayerWallet playerWallet;
+    [Tooltip("Hızlı satış tuşu (Hurda eşyalar)")]
+    public Key quickSellKey = Key.Q;
+
+    [Header("Drone")]
+    [Tooltip("Drone'a eşya yükleme tuşu")]
+    public Key droneLoadKey = Key.G;
+    [Tooltip("Drone çağırma tuşu")]
+    public Key droneSummonKey = Key.T;
 
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
@@ -98,13 +106,25 @@ public class PlayerGrabber : NetworkBehaviour
         }
 
         // --- HIZLI SATIŞ [Q] ---
-        if (heldObject != null && Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame)
+        if (heldObject != null && Keyboard.current != null && Keyboard.current[quickSellKey].wasPressedThisFrame)
         {
             if (heldObject.rarityTier == RarityTier.Hurda)
             {
                 QuickSell();
                 return;
             }
+        }
+
+        // --- DRONE'A EŞYA YÜKLEME [G] ---
+        if (heldObject != null && Keyboard.current != null && Keyboard.current[droneLoadKey].wasPressedThisFrame)
+        {
+            TryLoadIntoDrone();
+        }
+
+        // --- DRONE ÇAĞIRMA [T] ---
+        if (Keyboard.current != null && Keyboard.current[droneSummonKey].wasPressedThisFrame)
+        {
+            TrySummonDrone();
         }
 
         // Mouse scroll ile objeyi yakınlaştırıp uzaklaştırma (Yeni Input Sistemi)
@@ -321,6 +341,59 @@ public class PlayerGrabber : NetworkBehaviour
         // Client tarafı referansları temizle
         heldObject = null;
         heldRb = null;
+    }
+
+    /// <summary>
+    /// Tutulan eşyayı yakındaki drone'a yüklemeyi dener. [G] tuşuyla tetiklenir.
+    /// </summary>
+    void TryLoadIntoDrone()
+    {
+        if (heldObject == null) return;
+
+        // En yakın yüklenebilir drone'u bul
+        CarrierDrone drone = CarrierDrone.FindNearestLoadable(transform.position, 20f);
+        if (drone == null)
+        {
+            Debug.Log("[PlayerGrabber] Yakınlarda yüklenebilir drone yok.");
+            return;
+        }
+
+        // Client-side ön kontrol (ağırlık)
+        if (drone.CurrentWeight.Value + heldObject.weight > drone.maxCargoWeight)
+        {
+            Debug.Log("[PlayerGrabber] Drone kargo kapasitesi dolu!");
+            return;
+        }
+
+        NetworkObject itemNetObj = heldObject.GetComponent<NetworkObject>();
+        if (itemNetObj == null) return;
+
+        // Yerçekimini geri yükle (despawn öncesi temizlik)
+        if (heldRb != null)
+            heldRb.useGravity = originalUseGravity;
+
+        // Sunucuya yükleme isteği gönder (drone üzerinden)
+        drone.ServerLoadItem(itemNetObj);
+
+        // Client tarafı referansları temizle
+        heldObject = null;
+        heldRb = null;
+    }
+
+    /// <summary>
+    /// Drone çağırma. [T] tuşuyla tetiklenir.
+    /// En yakın idle drone'u bulup oyuncunun konumuna çağırır.
+    /// </summary>
+    void TrySummonDrone()
+    {
+        CarrierDrone drone = CarrierDrone.FindNearestSummonable(transform.position);
+        if (drone == null)
+        {
+            Debug.Log("[PlayerGrabber] Çağrılabilir drone yok.");
+            return;
+        }
+
+        drone.ServerSummonDrone(transform.position);
     }
 
     /// <summary>
