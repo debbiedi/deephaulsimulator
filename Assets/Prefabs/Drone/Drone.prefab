@@ -368,6 +368,12 @@ MonoBehaviour:
   wingSpeed: 12.09
   loadRange: 50
   hoverTimeout: 90
+  obstacleMask:
+    serializedVersion: 2
+    m_Bits: 320
+  teleportDistance: 30
+  breadcrumbChaseDistance: 12
+  avoidanceForce: 2
 --- !u!114 &8754830983696580124
 MonoBehaviour:
   m_ObjectHideFlags: 0

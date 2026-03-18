@@ -92,6 +92,20 @@ public class CarrierDrone : NetworkBehaviour
     [Tooltip("Kimse esya yuklemezse drone'un bekleme suresi (saniye)")]
     public float hoverTimeout = 90f;
 
+    [Header("Yapay Zeka (AI) Pathfinding")]
+    [Tooltip("Dronun carpmamak icin algilayacagi duvar/engel katmanlari. Inspector'dan Default vs secin!")]
+    public LayerMask obstacleMask;
+    [Tooltip("Sensorun engelleri gorecegi mesafe. (Orn: 4 metre)")]
+    public float sensorRange = 4f;
+    [Tooltip("Duvara yaklasinca onu ne kadar gucle itip kacacagi")]
+    public float avoidanceForce = 8f;
+    [Tooltip("Acil Durum (Failsafe): Drone kac metre uzakta kalirsa oyuncunun sirtina isinlanip kurtarilsin?")]
+    public float teleportDistance = 35f;
+    [Tooltip("Breadcrumb'larin ne kadar aralikla birakilacagi (metre)")]
+    public float breadcrumbDropDistance = 2f;
+    [Tooltip("Dronun magaraya girdigi varsayilip ekmek kirintilariyla takip edecegi mesafe (metre)")]
+    public float breadcrumbChaseDistance = 8f;
+
     // --- PRIVATE SERVER STATE ---
     private Rigidbody _rb;
     private float _departureCountdown;
@@ -106,6 +120,10 @@ public class CarrierDrone : NetworkBehaviour
     private float _wanderTimer;           // Rastgele gezinme periyodu
     private float _waterSurfaceY;         // Su yuzey yuksekligi
     private Renderer[] _renderers;        // Gorsel gizleme/gosterme icin
+
+    private Queue<Vector3> _breadcrumbs = new Queue<Vector3>();
+    private bool _isFollowingBreadcrumbs = false;
+    private Vector3 _lastBreadcrumbPos;
 
     // ========================================================
     //  LIFECYCLE
@@ -348,73 +366,131 @@ public class CarrierDrone : NetworkBehaviour
     {
         if (_trackingTarget != null)
         {
-            // 1. ÖLÜ BÖLGE (DEADZONE) VE HEDEF POZİSYON HESAPLAMASI
-            // Oyuncunun sag-arka tarafinda bir omuz ustu noktasi belirleyelim (saga ve geriye dogru offset)
-            Vector3 idealPosition = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0); 
-            
-            // Dronun hedeflenen x-z konumu ile ideal nokta arasindaki farka bakalim (Deadzone kontrolu)
-            Vector2 droneXZ = new Vector2(transform.position.x, transform.position.z);
-            Vector2 idealXZ = new Vector2(idealPosition.x, idealPosition.z);
-            float distToIdeal = Vector2.Distance(droneXZ, idealXZ);
+            float distToPlayerFull = Vector3.Distance(transform.position, _trackingTarget.position);
 
-            // Eger dron oyuncuya cok uzaksa veya oyuncu yurumeye (uzaklasmaya) basladiysa hedefi guncelle
-            // Ornegin 4 metreden fazla uzaklasildiginda drone oyuncuyu takip etsin
-            if (distToIdeal > 4.0f)
+            // 1. TIER 3 - FAILSAFE (ACIL DURUM ISINLANMA)
+            // Drone oyuncudan cok uzak kalirsa her seyi sifirla ve direk yanina isinla
+            if (distToPlayerFull > teleportDistance)
             {
-                _hoverTargetPos = idealPosition;
-                // Yeni bir hedefe gidilirken wander(gezinme) sifirlansin
+                transform.position = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0);
+                _breadcrumbs.Clear();
+                _isFollowingBreadcrumbs = false;
+                _currentVelocity = Vector3.zero;
+            }
+
+            // 2. OYUNCUNUN ARDINDAN BREADCRUMB (KIRINTI) BIRAKMA MANTIGI
+            if (Vector3.Distance(_trackingTarget.position, _lastBreadcrumbPos) > breadcrumbDropDistance)
+            {
+                Vector3 newCrumb = _trackingTarget.position - (_trackingTarget.forward * 1f) + new Vector3(0, hoverHeight, 0);
+                _breadcrumbs.Enqueue(newCrumb);
+                _lastBreadcrumbPos = _trackingTarget.position;
+                if (_breadcrumbs.Count > 50) _breadcrumbs.Dequeue();
+            }
+
+            // Orijinal ideal pos
+            Vector3 idealPosition = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0);
+
+            if (distToPlayerFull > breadcrumbChaseDistance)
+            {
+                _isFollowingBreadcrumbs = true;
                 _wanderTimer = 0f;
-                _wanderOffset = Vector3.zero;
+            }
+
+            if (distToPlayerFull < 5.0f && _breadcrumbs.Count == 0)
+            {
+                _isFollowingBreadcrumbs = false;
+                _breadcrumbs.Clear();
+            }
+
+            Vector3 finalTargetPos = idealPosition;
+
+            if (_isFollowingBreadcrumbs && _breadcrumbs.Count > 0)
+            {
+                Vector3 peekCrumb = _breadcrumbs.Peek();
+                finalTargetPos = peekCrumb;
+                if (Vector3.Distance(transform.position, peekCrumb) < 2.0f)
+                {
+                    _breadcrumbs.Dequeue();
+                }
             }
             else
             {
-                // Drone ölü bölgenin içindeyse (yani oyuncu duriyorsa veya yanindaysa), etrafta hafif yuzerek gezinsin
-                _wanderTimer -= Time.fixedDeltaTime;
-                if (_wanderTimer <= 0f)
+                // ÖLÜ BÖLGE (DEADZONE) VE GEZINME KONTROLU
+                Vector2 droneXZ = new Vector2(transform.position.x, transform.position.z);
+                Vector2 idealXZ = new Vector2(idealPosition.x, idealPosition.z);
+                float distToIdeal = Vector2.Distance(droneXZ, idealXZ);
+
+                if (distToIdeal > 4.0f)
                 {
-                    // 7-10 saniyede bir ufak, yeni bir rastgele yon sec (1-1.5 metre icinde)
-                    _wanderTimer = UnityEngine.Random.Range(7f, 10f);
-                    float randX = UnityEngine.Random.Range(-1.5f, 1.5f);
-                    float randZ = UnityEngine.Random.Range(-1.5f, 1.5f);
-                    _wanderOffset = new Vector3(randX, 0, randZ);
+                    _hoverTargetPos = idealPosition;
+                    _wanderTimer = 0f;
+                    _wanderOffset = Vector3.zero;
                 }
+                else
+                {
+                    _wanderTimer -= Time.fixedDeltaTime;
+                    if (_wanderTimer <= 0f)
+                    {
+                        _wanderTimer = UnityEngine.Random.Range(7f, 10f);
+                        float randX = UnityEngine.Random.Range(-1.5f, 1.5f);
+                        float randZ = UnityEngine.Random.Range(-1.5f, 1.5f);
+                        _wanderOffset = new Vector3(randX, 0, randZ);
+                    }
+                }
+                finalTargetPos = _hoverTargetPos;
             }
-        }
 
-        // 2. YUKARI ASAGI GERCEKCI DALGALANMA (Hovering Bounce)
-        // Drone havada asili kalirken pervanelerin verdigi hafif sekti hissi (cok ufak sin dalgasi)
-        Vector3 targetPosWithWander = _hoverTargetPos + _wanderOffset;
-        float bobOffset = Mathf.Sin(Time.time * 2.5f) * 0.15f; 
-        
-        targetPosWithWander.y += bobOffset;
+            // 3. TIER 1 - ENGELDEN KACINMA (RAYCAST OBSTACLE AVOIDANCE)
+            // Duvarlara surtmeyi ve sikismayi engellemek icin
+            Vector3 avoidanceOffset = Vector3.zero;
+            RaycastHit hit;
 
-        // 3. YUMUSAK TAKIP (SMOOTHDAMP) VE İLERLEME
-        // Drone'u bir sönümleme (PID frenlemesi mantigi) ile hedefine yumusacik gotur
-        float smoothTime = 0.6f; // Ne kadar buyukse o kadar buz ustunde gibi agir gelir
-        
-        // Hızlıca gelip sonra yumusakca durmasi icin SmoothDamp kullanimi
-        transform.position = Vector3.SmoothDamp(transform.position, targetPosWithWander, ref _currentVelocity, smoothTime, flySpeed);
-
-        // 4. DONUS (ROTATION) - SLERP İLE YUMUSAK DONUS
-        if (_trackingTarget != null)
-        {
-            // Oyuncuya (veya drone'un nereye gittigine) dogru cok yumusak bir donus yap
-            Vector3 directionToPlayer = (_trackingTarget.position - transform.position);
-            directionToPlayer.y = 0; // Sadece X-Z ekseninde dikine donmesi icin
-            
-            if (directionToPlayer.sqrMagnitude > 0.01f)
+            if (Physics.Raycast(transform.position, transform.forward, out hit, sensorRange, obstacleMask))
             {
-                // Standart drone gibi hafif one egilmesi veya havada yumusacik saga yatmasi hissiyati
-                Quaternion lookRot = Quaternion.LookRotation(directionToPlayer.normalized, Vector3.up);
-                
-                // Dronun guncel sikan hizina gore fizikli one yatma efekti (pitch/roll)
+                avoidanceOffset += hit.normal * avoidanceForce * (1.0f - hit.distance / sensorRange);
+            }
+            if (Physics.Raycast(transform.position, transform.right, out hit, sensorRange, obstacleMask))
+            {
+                avoidanceOffset += hit.normal * avoidanceForce * (1.0f - hit.distance / sensorRange);
+            }
+            if (Physics.Raycast(transform.position, -transform.right, out hit, sensorRange, obstacleMask))
+            {
+                avoidanceOffset += hit.normal * avoidanceForce * (1.0f - hit.distance / sensorRange);
+            }
+            
+            // Yukari (tavan veya magara tavanlari) carpismalarini engellemek icin
+            if (Physics.Raycast(transform.position, transform.up, out hit, sensorRange, obstacleMask))
+            {
+                avoidanceOffset += hit.normal * avoidanceForce * (1.0f - hit.distance / sensorRange);
+            }
+            
+            // Ekstra guvenlik: Asagiya (zemin/kayalar) sert inmemesi icin
+            if (Physics.Raycast(transform.position, -transform.up, out hit, sensorRange, obstacleMask))
+            {
+                avoidanceOffset += hit.normal * avoidanceForce * (1.0f - hit.distance / sensorRange);
+            }
+
+            Vector3 targetPosWithWanderAndAvoidance = finalTargetPos + _wanderOffset + avoidanceOffset;
+            float bobOffset = Mathf.Sin(Time.time * 2.5f) * 0.15f; 
+            targetPosWithWanderAndAvoidance.y += bobOffset;
+
+            // 4. YUMUŞAK TAKİP VE FİZİK (SMOOTHDAMP)
+            float smoothTime = 0.6f; 
+            transform.position = Vector3.SmoothDamp(transform.position, targetPosWithWanderAndAvoidance, ref _currentVelocity, smoothTime, flySpeed);
+
+            // 5. DONUS (ROTATION) - SLERP
+            Vector3 directionToFace = (targetPosWithWanderAndAvoidance - transform.position);
+            directionToFace.y = 0; 
+            if (directionToFace.sqrMagnitude > 0.01f)
+            {
+                Quaternion lookRot = Quaternion.LookRotation(directionToFace.normalized, Vector3.up);
+
                 float forwardTilt = Mathf.Clamp(Vector3.Dot(transform.forward, _currentVelocity) * 2.5f, -20f, 20f);
-                float sideTilt = Mathf.Clamp(Vector3.Dot(transform.right, _currentVelocity) * -2.5f, -20f, 20f); 
+                float sideTilt = Mathf.Clamp(Vector3.Dot(transform.right, _currentVelocity) * -2.5f, -20f, 20f);
                 
                 Quaternion tiltOffset = Quaternion.Euler(forwardTilt, 0, sideTilt);
                 Quaternion finalRotation = lookRot * tiltOffset;
 
-                // Eski Keskin slerp hizini 0.08 den daha da yavas ve dogal bir slerp'e cektik (0.03)
                 transform.rotation = Quaternion.Slerp(transform.rotation, finalRotation, Time.fixedDeltaTime * rotationSpeed * 0.03f);
             }
         }
