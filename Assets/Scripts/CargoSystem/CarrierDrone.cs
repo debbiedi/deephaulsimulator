@@ -31,8 +31,11 @@ public class CarrierDrone : NetworkBehaviour
     [Tooltip("Donus hizi (derece/saniye)")]
     public float rotationSpeed = 60f;
 
-    [Tooltip("Su yuzeyinin uzerinde hovlama yuksekligi (metre)")]
+    [Tooltip("Su yuzeyinin uzerinde veya karakterin yaninda hovlama yuksekligi (metre)")]
     public float hoverHeight = 2f;
+
+    [Tooltip("Karakterin ne kadar yaninda duracak (metre)")]
+    public float sideOffset = 1.5f;
 
     [Tooltip("Hedefe ulasma mesafesi (metre)")]
     public float arriveDistance = 2f;
@@ -94,9 +97,13 @@ public class CarrierDrone : NetworkBehaviour
     private float _departureCountdown;
     private float _deliveryTimer;
     private float _hoverTimer;            // Hover bekleme zamanlayicisi
+    private Transform _trackingTarget;    // Drone'un su uzerinde oyuncuyu takip etmesi icin hedeflenen oyuncu
     private Vector3 _spawnPosition;       // Yukaridaki baslangic noktasi
     private Quaternion _spawnRotation;
     private Vector3 _hoverTargetPos;      // Su yuzeyinde hovlanacagi pozisyon
+    private Vector3 _currentVelocity;     // SmoothDamp icerisinde kullanilan hiz referansi
+    private Vector3 _wanderOffset;        // Oyuncu dururken yapilan rastgele gezinme offset'i
+    private float _wanderTimer;           // Rastgele gezinme periyodu
     private float _waterSurfaceY;         // Su yuzey yuksekligi
     private Renderer[] _renderers;        // Gorsel gizleme/gosterme icin
 
@@ -131,13 +138,14 @@ public class CarrierDrone : NetworkBehaviour
     public override void OnStartNetwork()
     {
         base.OnStartNetwork();
-        _spawnPosition = transform.position;
-        _spawnRotation = transform.rotation;
 
         if (base.IsServerInitialized)
         {
             State.Value = DroneState.Idle;
             CurrentWeight.Value = 0f;
+            // Spawn pozisyonunu yukarıda ayarla (Despawn olurken buraya uçar)
+            _spawnPosition = transform.position;
+            _spawnRotation = transform.rotation;
         }
 
         // Idle'da gorunmez baslat
@@ -149,6 +157,12 @@ public class CarrierDrone : NetworkBehaviour
         base.OnStartClient();
         CargoItems.OnChange += OnCargoListChanged;
         State.OnChange += OnStateValueChanged;
+
+        // Mevcut state'e gore bastan gorunurlugu ayarla (sonradan baglanan client'lar icin onemli)
+        if (State.Value == DroneState.Idle)
+            SetVisible(false);
+        else
+            SetVisible(true);
     }
 
     public override void OnStopClient()
@@ -177,7 +191,7 @@ public class CarrierDrone : NetworkBehaviour
         // Idle'da gizle, diger durumlarda goster
         if (next == DroneState.Idle)
             SetVisible(false);
-        else if (prev == DroneState.Idle)
+        else
             SetVisible(true);
     }
 
@@ -229,42 +243,38 @@ public class CarrierDrone : NetworkBehaviour
     }
 
     // ========================================================
-    //  SUMMONING (Drone Cagirma)
+    //  SUMMONING & INIT (Drone Çağırma ve Spawn)
     // ========================================================
 
+    public readonly SyncVar<int> OwnerClientId = new SyncVar<int>(-1);
+
     /// <summary>
-    /// Herhangi bir oyuncu drone'u cagirir.
-    /// Drone yukaridan oyuncunun bulundugu su yuzeyine iner.
+    /// PlayerGrabber tarafından drone objesi spawn edildikten hemen sonra çağrılır.
+    /// Zaten havada (dropHeight) yaratıldı. Sadece aşağı inecek.
     /// </summary>
-    [ServerRpc(RequireOwnership = false)]
-    public void ServerSummonDrone(Vector3 callerPosition, NetworkConnection sender = null)
+    [Server]
+    public void ServerInitAndSummon(PlayerGrabber callerScript, float waterY)
     {
-        // Sadece Idle durumundayken cagrilabilir
-        if (State.Value != DroneState.Idle)
+        if (callerScript == null || callerScript.Owner == null) return;
+
+        OwnerClientId.Value = callerScript.Owner.ClientId;
+        _waterSurfaceY = waterY;
+
+        Vector3 callerPosition = callerScript.transform.position;
+        // Karakterin sag tarafinda (X ekseninde offset) ve yukarisinda (+Y) bir nokta belirle
+        _hoverTargetPos = callerPosition + (callerScript.transform.right * sideOffset) + new Vector3(0, hoverHeight, 0);
+
+        // Başlangıç fiziğini ayarla (kinematik inis yapacagiz)
+        if (_rb != null)
         {
-            if (sender != null)
-                TargetNotifyLoadFailed(sender, "Drone zaten gorevde!");
-            return;
+            _rb.isKinematic = true;
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
         }
 
-        // Oyuncunun bulundugu su bolgesini bul
-        WaterZone zone = WaterZone.GetZoneForPosition(callerPosition);
-        if (zone == null)
-        {
-            if (sender != null)
-                TargetNotifyLoadFailed(sender, "Drone'u sadece su icindeyken cagirabilirsiniz!");
-            return;
-        }
-
-        // Su yuzeyini bul
-        _waterSurfaceY = zone.waterSurfaceY;
-
-        // Hedef: Oyuncunun XZ pozisyonu, su yuzeyinin uzerinde hover yuksekligi
-        _hoverTargetPos = new Vector3(callerPosition.x, _waterSurfaceY + hoverHeight, callerPosition.z);
-
-        // Drone'u spawn pozisyonuna tasi (yukarida)
-        transform.position = _spawnPosition;
-        transform.rotation = _spawnRotation;
+        // Oyuncuyu bul ve takip hedefine ayarla
+        _trackingTarget = callerScript.transform;
+        Debug.Log($"[CarrierDrone] Takip edilecek obje ayarlandi: {_trackingTarget.name} (ClientId: {OwnerClientId.Value})");
 
         State.Value = DroneState.Arriving;
         ObserversNotifyDroneSummoned();
@@ -281,18 +291,30 @@ public class CarrierDrone : NetworkBehaviour
     /// </summary>
     private void UpdateArriving()
     {
+        // Surekli hareket eden oyuncuyu takip etmek icin hedef yuzey guncellenir
+        if (_trackingTarget != null)
+        {
+            // Oyuncunun sağına ve yukarıya offset belirle
+            _hoverTargetPos = _trackingTarget.position + (_trackingTarget.right * sideOffset) + new Vector3(0, hoverHeight, 0);
+        }
+
+        // Asagi inis ve takip (kinematik hareket)
+        float currentSpeed = verticalSpeed * 1.5f; // Hizli inis
+        transform.position = Vector3.MoveTowards(transform.position, _hoverTargetPos, currentSpeed * Time.fixedDeltaTime);
+        
+        // Asagi dogru yonelme (sadece gorsel amacli)
+        Vector3 direction = (_hoverTargetPos - transform.position);
+        direction.y = 0;
+        if (direction.sqrMagnitude > 0.01f)
+        {
+            Quaternion lookRot = Quaternion.LookRotation(direction.normalized, Vector3.up);
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRot, rotationSpeed * Time.fixedDeltaTime * 0.05f);
+        }
+
         float dist = Vector3.Distance(transform.position, _hoverTargetPos);
-
-        // Yaklastikca yavasla (son 5 metrede hiz duser)
-        float slowdownDist = 5f;
-        float speedFactor = Mathf.Clamp01(dist / slowdownDist);
-        float currentSpeed = Mathf.Lerp(verticalSpeed * 0.3f, flySpeed, speedFactor);
-
-        FlyToward(_hoverTargetPos, currentSpeed);
-
         if (dist <= arriveDistance)
         {
-            // Yerine ulasti - kinematik yap, hoverlama basla
+            // Yerine ulasti - hoverlama basla
             _rb.linearVelocity = Vector3.zero;
             _rb.angularVelocity = Vector3.zero;
             _rb.isKinematic = true;
@@ -311,19 +333,11 @@ public class CarrierDrone : NetworkBehaviour
     /// <summary>
     /// Su yuzeyinde hovlaniyor, esya yuklenmeyi bekliyor.
     /// Hafif yukari-asagi yalpalama efekti.
-    /// Timeout suresinde esya yuklenmezse drone eve doner.
+    /// Oyuncu manuel olarak gonderene kadar burada kalir.
     /// </summary>
     private void UpdateHovering()
     {
         HoldHoverPosition();
-
-        // Hover timeout - kimse esya yuklemezse eve don
-        _hoverTimer += Time.fixedDeltaTime;
-        if (_hoverTimer >= hoverTimeout)
-        {
-            Debug.Log("[CarrierDrone] Hover zamani doldu, drone eve donuyor.");
-            StartReturning();
-        }
     }
 
     /// <summary>
@@ -332,31 +346,88 @@ public class CarrierDrone : NetworkBehaviour
     /// </summary>
     private void HoldHoverPosition()
     {
-        // Hedef yukseklikte tut + hafif yalpalama
-        float targetY = _waterSurfaceY + hoverHeight;
-        float bobOffset = Mathf.Sin(Time.time * 1.5f) * 0.15f;
-        targetY += bobOffset;
+        if (_trackingTarget != null)
+        {
+            // 1. ÖLÜ BÖLGE (DEADZONE) VE HEDEF POZİSYON HESAPLAMASI
+            // Oyuncunun sag-arka tarafinda bir omuz ustu noktasi belirleyelim (saga ve geriye dogru offset)
+            Vector3 idealPosition = _trackingTarget.position + (_trackingTarget.right * sideOffset) - (_trackingTarget.forward * 1.5f) + new Vector3(0, hoverHeight, 0); 
+            
+            // Dronun hedeflenen x-z konumu ile ideal nokta arasindaki farka bakalim (Deadzone kontrolu)
+            Vector2 droneXZ = new Vector2(transform.position.x, transform.position.z);
+            Vector2 idealXZ = new Vector2(idealPosition.x, idealPosition.z);
+            float distToIdeal = Vector2.Distance(droneXZ, idealXZ);
 
-        // Direkt pozisyonlama (kinematik modda fizik karismaz)
-        transform.position = new Vector3(_hoverTargetPos.x, targetY, _hoverTargetPos.z);
+            // Eger dron oyuncuya cok uzaksa veya oyuncu yurumeye (uzaklasmaya) basladiysa hedefi guncelle
+            // Ornegin 4 metreden fazla uzaklasildiginda drone oyuncuyu takip etsin
+            if (distToIdeal > 4.0f)
+            {
+                _hoverTargetPos = idealPosition;
+                // Yeni bir hedefe gidilirken wander(gezinme) sifirlansin
+                _wanderTimer = 0f;
+                _wanderOffset = Vector3.zero;
+            }
+            else
+            {
+                // Drone ölü bölgenin içindeyse (yani oyuncu duriyorsa veya yanindaysa), etrafta hafif yuzerek gezinsin
+                _wanderTimer -= Time.fixedDeltaTime;
+                if (_wanderTimer <= 0f)
+                {
+                    // 7-10 saniyede bir ufak, yeni bir rastgele yon sec (1-1.5 metre icinde)
+                    _wanderTimer = UnityEngine.Random.Range(7f, 10f);
+                    float randX = UnityEngine.Random.Range(-1.5f, 1.5f);
+                    float randZ = UnityEngine.Random.Range(-1.5f, 1.5f);
+                    _wanderOffset = new Vector3(randX, 0, randZ);
+                }
+            }
+        }
+
+        // 2. YUKARI ASAGI GERCEKCI DALGALANMA (Hovering Bounce)
+        // Drone havada asili kalirken pervanelerin verdigi hafif sekti hissi (cok ufak sin dalgasi)
+        Vector3 targetPosWithWander = _hoverTargetPos + _wanderOffset;
+        float bobOffset = Mathf.Sin(Time.time * 2.5f) * 0.15f; 
+        
+        targetPosWithWander.y += bobOffset;
+
+        // 3. YUMUSAK TAKIP (SMOOTHDAMP) VE İLERLEME
+        // Drone'u bir sönümleme (PID frenlemesi mantigi) ile hedefine yumusacik gotur
+        float smoothTime = 0.6f; // Ne kadar buyukse o kadar buz ustunde gibi agir gelir
+        
+        // Hızlıca gelip sonra yumusakca durmasi icin SmoothDamp kullanimi
+        transform.position = Vector3.SmoothDamp(transform.position, targetPosWithWander, ref _currentVelocity, smoothTime, flySpeed);
+
+        // 4. DONUS (ROTATION) - SLERP İLE YUMUSAK DONUS
+        if (_trackingTarget != null)
+        {
+            // Oyuncuya (veya drone'un nereye gittigine) dogru cok yumusak bir donus yap
+            Vector3 directionToPlayer = (_trackingTarget.position - transform.position);
+            directionToPlayer.y = 0; // Sadece X-Z ekseninde dikine donmesi icin
+            
+            if (directionToPlayer.sqrMagnitude > 0.01f)
+            {
+                // Standart drone gibi hafif one egilmesi veya havada yumusacik saga yatmasi hissiyati
+                Quaternion lookRot = Quaternion.LookRotation(directionToPlayer.normalized, Vector3.up);
+                
+                // Dronun guncel sikan hizina gore fizikli one yatma efekti (pitch/roll)
+                float forwardTilt = Mathf.Clamp(Vector3.Dot(transform.forward, _currentVelocity) * 2.5f, -20f, 20f);
+                float sideTilt = Mathf.Clamp(Vector3.Dot(transform.right, _currentVelocity) * -2.5f, -20f, 20f); 
+                
+                Quaternion tiltOffset = Quaternion.Euler(forwardTilt, 0, sideTilt);
+                Quaternion finalRotation = lookRot * tiltOffset;
+
+                // Eski Keskin slerp hizini 0.08 den daha da yavas ve dogal bir slerp'e cektik (0.03)
+                transform.rotation = Quaternion.Slerp(transform.rotation, finalRotation, Time.fixedDeltaTime * rotationSpeed * 0.03f);
+            }
+        }
     }
 
     // ========================================================
-    //  STATE: LOADING (Esya yukleniyor, geri sayim)
+    //  STATE: LOADING (Esya yukleniyor)
     // ========================================================
 
     private void UpdateLoading()
     {
-        _departureCountdown -= Time.fixedDeltaTime;
-        DepartureTimer.Value = Mathf.Max(0f, _departureCountdown);
-
-        // Hover pozisyonunda tut
+        // Surekli hover kalir. Kalkis manuel "F" ile yapilacak.
         HoldHoverPosition();
-
-        if (_departureCountdown <= 0f || CurrentWeight.Value >= maxCargoWeight)
-        {
-            StartDeparting();
-        }
     }
 
     // ========================================================
@@ -373,84 +444,64 @@ public class CarrierDrone : NetworkBehaviour
         _rb.angularVelocity = Vector3.zero;
     }
 
-    [Server]
-    private void StartDeparting()
+    // ========================================================
+    //  MANUAL SEND AWAY
+    // ========================================================
+
+    [ServerRpc(RequireOwnership = false)]
+    public void ServerSendAway()
     {
-        // Bos kargoyla kalkma — eve don
-        if (CargoItems.Count == 0)
+        // Geri donus veya kalkis disinda cagrildiysa kabul et
+        if (State.Value == DroneState.Hovering || State.Value == DroneState.Loading)
         {
-            Debug.Log("[CarrierDrone] Kargo bos, drone eve donuyor.");
-            StartReturning();
-            return;
-        }
-
-        ExitHoverMode();
-        State.Value = DroneState.Departing;
-        ObserversNotifyDeparture();
-        Debug.Log("[CarrierDrone] Drone havalanıyor, teslimat noktasina gidiyor!");
-    }
-
-    /// <summary>
-    /// Drone'u dogrudan eve dondur (esya yoksa veya timeout).
-    /// </summary>
-    [Server]
-    private void StartReturning()
-    {
-        ExitHoverMode();
-        State.Value = DroneState.Returning;
-    }
-
-    /// <summary>
-    /// Teslimat noktasina dogru ucuyor.
-    /// </summary>
-    private void UpdateDeparting()
-    {
-        if (targetStation == null || targetStation.deliveryPoint == null)
-        {
-            Debug.LogWarning("[CarrierDrone] Teslimat noktasi yok! Geri donuyor.");
+            ExitHoverMode();
             State.Value = DroneState.Returning;
-            return;
+            Debug.Log("[CarrierDrone] Oyuncu tarafindan gonderildi. Yukariya ucuyor.");
         }
+    }
 
-        Vector3 stationPos = targetStation.deliveryPoint.position;
-        FlyToward(stationPos, flySpeed);
+    // ========================================================
+    //  STATE: DEPARTING / DELIVERING (Kullanılmıyor, direkt Returning'e geçiyor)
+    // ========================================================
 
-        float dist = Vector3.Distance(transform.position, stationPos);
+    private void UpdateDeparting() { /* Kullanılmıyor */ }
+    private void UpdateDelivering() { /* Kullanılmıyor */ }
+
+    // ========================================================
+    //  STATE: RETURNING (Gokyuzundeki spawn noktasina cikis ve despawn)
+    // ========================================================
+
+    private void UpdateReturning()
+    {
+        // Direkt olarak en basinda baslatildigi XZ ekseninden dusmeden dikine yukari ucus
+        Vector3 targetPos = new Vector3(transform.position.x, _spawnPosition.y, transform.position.z);
+        FlyToward(targetPos, verticalSpeed * 2f);
+
+        float dist = Mathf.Abs(transform.position.y - targetPos.y);
         if (dist <= arriveDistance)
         {
-            ArriveAtStation();
+            ArriveHomeAndDeliver();
         }
     }
-
-    // ========================================================
-    //  STATE: DELIVERING (Teslimat noktasinda bosaltma)
-    // ========================================================
 
     [Server]
-    private void ArriveAtStation()
+    private void ArriveHomeAndDeliver()
     {
-        _deliveryTimer = 0f;
-        State.Value = DroneState.Delivering;
+        // Esyalari gemiye (kasaya) ver
+        DeliverAllCargo();
+
+        // Sistemi sifirla
         _rb.linearVelocity = Vector3.zero;
         _rb.angularVelocity = Vector3.zero;
-    }
+        State.Value = DroneState.Idle;
 
-    private void UpdateDelivering()
-    {
-        _deliveryTimer += Time.fixedDeltaTime;
-
-        if (_deliveryTimer >= deliveryDuration)
-        {
-            DeliverAllCargo();
-            State.Value = DroneState.Returning;
-        }
+        Debug.Log("[CarrierDrone] Drone oyuncunun isini bitirdi, esyalar teslim edildi, Despawn oluyor.");
+        base.ServerManager.Despawn(base.NetworkObject);
     }
 
     [Server]
     private void DeliverAllCargo()
     {
-        if (targetStation == null) return;
-
         float totalSaleValue = 0f;
         int itemCount = CargoItems.Count;
 
@@ -462,42 +513,22 @@ public class CarrierDrone : NetworkBehaviour
             ObserversNotifyItemDelivered(salePrice, item.ItemName);
         }
 
-        if (TeamTreasury.Instance != null)
+        // Oyun ici Hazineye veya Cüzdana eklensin
+        if (TeamTreasury.Instance != null && totalSaleValue > 0)
+        {
             TeamTreasury.Instance.AddToTreasury(totalSaleValue);
-
-        targetStation.ServerReceiveDelivery(itemCount, totalSaleValue);
+        }
+        else if (totalSaleValue > 0)
+        {
+            // Ortak hazine yoksa varsayılan veya test mekanizması baska bir yere koyulabilir
+            Debug.LogWarning("[CarrierDrone] Hazine bulunamadi, para uctu.");
+        }
 
         CargoItems.Clear();
         CurrentWeight.Value = 0f;
 
-        Debug.Log($"[CarrierDrone] Teslimat tamamlandi! {itemCount} esya, toplam: {totalSaleValue:F0}TL");
-    }
-
-    // ========================================================
-    //  STATE: RETURNING (Spawn noktasina geri donus)
-    // ========================================================
-
-    private void UpdateReturning()
-    {
-        FlyToward(_spawnPosition, flySpeed);
-
-        float dist = Vector3.Distance(transform.position, _spawnPosition);
-        if (dist <= arriveDistance)
-        {
-            ArriveHome();
-        }
-    }
-
-    [Server]
-    private void ArriveHome()
-    {
-        _rb.linearVelocity = Vector3.zero;
-        _rb.angularVelocity = Vector3.zero;
-        transform.position = _spawnPosition;
-        transform.rotation = _spawnRotation;
-        State.Value = DroneState.Idle;
-
-        Debug.Log("[CarrierDrone] Drone yuvasina dondu, tekrar cagrilmaya hazir.");
+        if(itemCount > 0)
+            Debug.Log($"[CarrierDrone] Teslimat (Gemiye) tamamlandi! ({itemCount} eşya), Toplam: {totalSaleValue:F0}TL");
     }
 
     // ========================================================
@@ -543,6 +574,13 @@ public class CarrierDrone : NetworkBehaviour
     public void ServerLoadItem(NetworkObject itemNetObj, NetworkConnection sender = null)
     {
         if (itemNetObj == null) return;
+
+        // Baskasi yukleme yapmasina izin verme
+        if (sender != null && sender.ClientId != OwnerClientId.Value)
+        {
+            TargetNotifyLoadFailed(sender, "Bu drone baskasina ait!");
+            return;
+        }
 
         // Sadece Hovering veya Loading state'inde esya yuklenebilir
         if (State.Value != DroneState.Hovering && State.Value != DroneState.Loading)
@@ -602,10 +640,8 @@ public class CarrierDrone : NetworkBehaviour
 
         base.ServerManager.Despawn(itemNetObj);
 
-        // State'i Loading'e gec ve zamanlayiciyi baslat/sifirla
+        // State'i Loading veya Hovering'de tut (Farki yok, sadece UI vs icin bilsin yeter)
         State.Value = DroneState.Loading;
-        _departureCountdown = departureDelay;
-        DepartureTimer.Value = departureDelay;
 
         Debug.Log($"[CarrierDrone] '{data.ItemName}' yuklendi! " +
                   $"Agirlik: {CurrentWeight.Value:F1}/{maxCargoWeight} kg | " +

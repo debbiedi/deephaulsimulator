@@ -494,6 +494,7 @@ MonoBehaviour:
   - {fileID: 2364561402664506632}
   - {fileID: 6359247056334615463}
   - {fileID: 4336225408076550258}
+  - {fileID: 4465927812540762583}
   - {fileID: 3868330913114052495}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
@@ -505,7 +506,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584278684018037968
+  _initializedTimestamp: -8584277821995865588
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -521,7 +522,7 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 1
+  <PrefabId>k__BackingField: 2
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 4490629183183553853
   SceneId: 0
@@ -1065,7 +1066,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34ad3feecd53141f481aed52f4d1baf7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraModeManager
-  _componentIndexCache: 8
+  _componentIndexCache: 9
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   tpsVirtualCamera: {fileID: 6839663338498295139}
@@ -3236,6 +3237,11 @@ MonoBehaviour:
   bagTargetPoint: {fileID: 9091201036885235878}
   bagAnimationDuration: 0.4
   playerWallet: {fileID: 4465927812540762583}
+  quickSellKey: 31
+  dronePrefab: {fileID: 17322197311979098, guid: cc3c9893b556d114ebdad00871af9cd9, type: 3}
+  droneLoadKey: 21
+  droneSummonKey: 34
+  droneSendKey: 20
 --- !u!114 &8676302997163695490
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3259,6 +3265,8 @@ MonoBehaviour:
   underwaterWalkSpeed: 1.2
   underwaterWalkSprintSpeed: 2
   spaceToSwimFromWalk: 1
+  ascendKey: 1
+  descendKey: 55
   stateChangeCooldown: 0.5
   groundedRequiredDuration: 0.9
 --- !u!114 &2364561402664506632
@@ -3472,9 +3480,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a31f8df0dfaafb1428d91aea27801930, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWallet
-  _componentIndexCache: 255
+  _componentIndexCache: 8
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
 --- !u!1 &7760972134395960278
 GameObject:
   m_ObjectHideFlags: 0

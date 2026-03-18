@@ -300,8 +300,8 @@ Transform:
   m_GameObject: {fileID: 9122218538987658849}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 19.412, z: 19.89}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 0.6, y: 0.6, z: 0.6}
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6380182833280849331}
@@ -355,6 +355,7 @@ MonoBehaviour:
   verticalSpeed: 4
   rotationSpeed: 60
   hoverHeight: 2
+  sideOffset: 1.5
   arriveDistance: 2
   maxCargoWeight: 20
   maxCargoSlots: 15
@@ -398,7 +399,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584278117418554246
+  _initializedTimestamp: -8584277799839630838
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -419,9 +420,9 @@ MonoBehaviour:
   <AssetPathHash>k__BackingField: 1168056913562594541
   SceneId: 0
   SerializedTransformProperties:
-    Position: {x: 0, y: 19.412, z: 19.89}
+    Position: {x: 0, y: 0, z: 0}
     Rotation: {x: 0, y: 0, z: 0, w: 1}
-    Scale: {x: 1, y: 1, z: 1}
+    Scale: {x: 0.7, y: 0.7, z: 0.7}
     IsValid: 1
 --- !u!114 &8057795214177851648
 MonoBehaviour:
