@@ -490,8 +490,8 @@ public class PlayerGrabber : NetworkBehaviour
         
         NetworkObject droneNetObj = base.NetworkManager.GetPooledInstantiated(dronePrefab.gameObject, spawnPos, Quaternion.identity, asServer: true);
         
-        // 4. FishNet ServerManager ile Spawn et
-        base.ServerManager.Spawn(droneNetObj, base.Owner);
+        // 4. FishNet ServerManager ile Spawn et (Sahiplik Server'da kalmali, boylece interpolasyon calisir)
+        base.ServerManager.Spawn(droneNetObj);
 
         // 5. Kurulum yap
         CarrierDrone spawnedDrone = droneNetObj.GetComponent<CarrierDrone>();
