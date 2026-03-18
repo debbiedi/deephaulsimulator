@@ -411,12 +411,6 @@ public class PlayerGrabber : NetworkBehaviour
             return;
         }
 
-        if (targetDrone.OwnerClientId.Value != base.Owner.ClientId)
-        {
-            Debug.Log("[PlayerGrabber] HATA: Bu drone size ait değil, eşya yükleyemezsiniz!");
-            return;
-        }
-
         // Drone yuklenebilir durumda mi?
         DroneState state = targetDrone.State.Value;
         if (state != DroneState.Hovering && state != DroneState.Loading)
