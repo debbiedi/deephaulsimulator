@@ -168,6 +168,9 @@ MonoBehaviour:
   currentPrice: 0
   fragility: 5
   damageThreshold: 3
+  safeCollisionLayers:
+    serializedVersion: 2
+    m_Bits: 512
   requiredBagCount: 1
 --- !u!114 &996617291361729787
 MonoBehaviour:

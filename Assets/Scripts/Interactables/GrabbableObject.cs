@@ -28,6 +28,9 @@ public class GrabbableObject : NetworkBehaviour
     public float fragility = 5f; // Çarpma şiddetinin ne kadarı hasara dönüşecek
     public float damageThreshold = 3f; // Hasar almak için gereken minimum çarpma hızı (velocity)
 
+    [Tooltip("Bu katmanlarla çarpışınca hasar ALINMAZ (Örn: Drone katmanı)")]
+    public LayerMask safeCollisionLayers;
+
     [Header("Lifting Bags")]
     [Tooltip("Bu eşyayı yüzeye çıkarmak için gereken balon sayısı")]
     public int requiredBagCount = 1;
@@ -104,6 +107,18 @@ public class GrabbableObject : NetworkBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        // 1. GÜVENLİK: Çarptığımız obje güvenli bir katmandaysa hasar alma (Örn: Drone layer'ı inspector'dan seçilmişse)
+        if ((safeCollisionLayers.value & (1 << collision.gameObject.layer)) > 0)
+        {
+            return;
+        }
+
+        // 2. GÜVENLİK: Çarptığımız obje veya ebeveyni CarrierDrone içeriyorsa kesinlikle hasar alma (layer ayarlanmayı unutulursa korur)
+        if (collision.gameObject.GetComponentInParent<CarrierDrone>() != null)
+        {
+            return;
+        }
+
         // Çarpışmanın şiddetini alıyoruz
         float impactSpeed = collision.relativeVelocity.magnitude;
 

@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6380182833280849331}
   - component: {fileID: 2990734516457770872}
   - component: {fileID: 8737289986260330981}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Govde
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -101,7 +101,7 @@ GameObject:
   - component: {fileID: 8501185221843758452}
   - component: {fileID: 6935291662576499284}
   - component: {fileID: 2194236613195745189}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Sol_Kanat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -191,7 +191,7 @@ GameObject:
   - component: {fileID: 6139007928446167213}
   - component: {fileID: 3637558177240580487}
   - component: {fileID: 8669823406630906771}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Sag_Kanat
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -285,7 +285,7 @@ GameObject:
   - component: {fileID: 8057795214177851648}
   - component: {fileID: 6727728831401887505}
   - component: {fileID: 9151041694118026185}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Drone
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -409,7 +409,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584277741316162088
+  _initializedTimestamp: -8584277655875813242
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
