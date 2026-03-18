@@ -62,6 +62,15 @@ public class CarrierDrone : NetworkBehaviour
     [Tooltip("Pervane/motor sesi icin AudioSource (opsiyonel)")]
     public AudioSource motorAudioSource;
 
+    [Tooltip("Esya yukleme ve hata seslerinin calinmasi icin ikinci bir AudioSource (sfx icin)")]
+    public AudioSource sfxAudioSource;
+
+    [Tooltip("Drona esya basariyla yuklendiginde calacak ses")]
+    public AudioClip itemLoadSound;
+
+    [Tooltip("Kapasite dolu vb. hata durumunda calacak ses")]
+    public AudioClip cargoErrorSound;
+
     [Tooltip("Kargo sepeti Transform (esya animasyonu hedef noktasi)")]
     public Transform cargoBasketPoint;
 
@@ -704,6 +713,7 @@ public class CarrierDrone : NetworkBehaviour
         {
             if (sender != null)
                 TargetNotifyLoadFailed(sender, "Drone'un kargo kapasitesi dolu!");
+            ObserversNotifyErrorSound();
             return;
         }
 
@@ -712,6 +722,7 @@ public class CarrierDrone : NetworkBehaviour
         {
             if (sender != null)
                 TargetNotifyLoadFailed(sender, "Drone'da bos slot yok!");
+            ObserversNotifyErrorSound();
             return;
         }
 
@@ -813,6 +824,27 @@ public class CarrierDrone : NetworkBehaviour
     private void ObserversNotifyItemLoaded(ItemData data)
     {
         OnCargoAdded?.Invoke(data);
+        PlaySfx(itemLoadSound);
+    }
+
+    [ServerRpc(RequireOwnership = false)]
+    public void ServerPlayErrorSound()
+    {
+        ObserversNotifyErrorSound();
+    }
+
+    [ObserversRpc]
+    private void ObserversNotifyErrorSound()
+    {
+        PlaySfx(cargoErrorSound);
+    }
+
+    private void PlaySfx(AudioClip clip)
+    {
+        if (clip != null && sfxAudioSource != null)
+        {
+            sfxAudioSource.PlayOneShot(clip, 1f);
+        }
     }
 
     [ObserversRpc]

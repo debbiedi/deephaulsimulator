@@ -1,10 +1,11 @@
 using UnityEngine;
+using FishNet.Object;
 
 /// <summary>
 /// Kemer çantası ses efektleri.
 /// Player prefabına eklenir, BeltBagInventory event'lerini dinler.
 /// </summary>
-public class BeltBagAudio : MonoBehaviour
+public class BeltBagAudio : NetworkBehaviour
 {
     [Header("Referanslar")]
     public BeltBagInventory inventory;
@@ -43,16 +44,30 @@ public class BeltBagAudio : MonoBehaviour
 
     private void OnItemCollected(ItemData item)
     {
-        PlaySound(collectSound);
+        if (base.IsOwner)
+        {
+            ServerPlaySound(true);
+        }
     }
 
     public void PlayBagFullSound()
     {
-        PlaySound(bagFullSound);
+        if (base.IsOwner)
+        {
+            ServerPlaySound(false);
+        }
     }
 
-    private void PlaySound(AudioClip clip)
+    [ServerRpc(RequireOwnership = false)]
+    private void ServerPlaySound(bool isCollectSound)
     {
+        ObserversPlaySound(isCollectSound);
+    }
+
+    [ObserversRpc(BufferLast = false)]
+    private void ObserversPlaySound(bool isCollectSound)
+    {
+        AudioClip clip = isCollectSound ? collectSound : bagFullSound;
         if (clip != null && audioSource != null)
         {
             audioSource.PlayOneShot(clip, volume);

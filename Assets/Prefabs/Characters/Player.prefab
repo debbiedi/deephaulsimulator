@@ -607,7 +607,7 @@ AudioSource:
   Priority: 128
   DopplerLevel: 1
   MinDistance: 1
-  MaxDistance: 500
+  MaxDistance: 10
   Pan2D: 0
   rolloffMode: 0
   BypassEffects: 0
@@ -672,7 +672,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 1
+      value: 1.1
       inSlope: 0
       outSlope: 0
       tangentMode: 0
@@ -3349,6 +3349,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed3a90fc934784d429e7abb8f02e7e42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeltBagAudio
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 8221100990702153553}
+  _networkObjectCache: {fileID: 0}
   inventory: {fileID: 4336225408076550258}
   audioSource: {fileID: 2823908585404832651}
   collectSound: {fileID: 8300000, guid: 87027de1a52c426459886917f545847e, type: 3}

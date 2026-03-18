@@ -416,6 +416,7 @@ public class PlayerGrabber : NetworkBehaviour
         if (state != DroneState.Hovering && state != DroneState.Loading)
         {
             Debug.Log("[PlayerGrabber] Seçilen drone su an esya kabul edemiyor.");
+            targetDrone.ServerPlayErrorSound();
             return;
         }
 
@@ -423,6 +424,15 @@ public class PlayerGrabber : NetworkBehaviour
         if (targetDrone.CurrentWeight.Value + heldObject.weight > targetDrone.maxCargoWeight)
         {
             Debug.Log("[PlayerGrabber] Drone kargo kapasitesi dolu!");
+            targetDrone.ServerPlayErrorSound();
+            return;
+        }
+
+        // Client-side ön kontrol (slot)
+        if (targetDrone.CargoItems.Count >= targetDrone.maxCargoSlots)
+        {
+            Debug.Log("[PlayerGrabber] Drone'da bos slot yok!");
+            targetDrone.ServerPlayErrorSound();
             return;
         }
 
