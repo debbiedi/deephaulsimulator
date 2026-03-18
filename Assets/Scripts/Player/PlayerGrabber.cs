@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using FishNet.Object;
+using FishNet.Connection;
 using System;
 
 public class PlayerGrabber : NetworkBehaviour
@@ -35,6 +36,22 @@ public class PlayerGrabber : NetworkBehaviour
     [Header("Hızlı Satış")]
     [Tooltip("Oyuncunun kişisel cüzdanı (aynı player üzerinde)")]
     public PlayerWallet playerWallet;
+    [Tooltip("Hızlı satış tuşu (Hurda eşyalar)")]
+    public Key quickSellKey = Key.Q;
+
+    [Header("Drone")]
+    [Tooltip("Drone'un spawn edileceği prefab (Networked ayarlarına sahip olmalı). Eğer atanmazsa drone spawn olmaz.")]
+    public CarrierDrone dronePrefab;
+
+    [Tooltip("Drone'a eşya yükleme tuşu")]
+    public Key droneLoadKey = Key.G;
+    [Tooltip("Drone çağırma tuşu")]
+    public Key droneSummonKey = Key.T;
+    [Tooltip("Drone'u gönderip eşyaları teslim etme tuşu")]
+    public Key droneSendKey = Key.F;
+
+    // Sadece bu oyuncunun drone referansı
+    private CarrierDrone _myActiveDrone;
 
     private GrabbableObject heldObject;
     private Rigidbody heldRb;
@@ -98,13 +115,32 @@ public class PlayerGrabber : NetworkBehaviour
         }
 
         // --- HIZLI SATIŞ [Q] ---
-        if (heldObject != null && Keyboard.current != null && Keyboard.current.qKey.wasPressedThisFrame)
+        if (heldObject != null && Keyboard.current != null && Keyboard.current[quickSellKey].wasPressedThisFrame)
         {
             if (heldObject.rarityTier == RarityTier.Hurda)
             {
                 QuickSell();
                 return;
             }
+        }
+
+        // --- DRONE'A EŞYA YÜKLEME [G] ---
+        if (heldObject != null && Keyboard.current != null && Keyboard.current[droneLoadKey].wasPressedThisFrame)
+        {
+            TryLoadIntoDrone();
+        }
+
+        // --- DRONE ÇAĞIRMA [T] ---
+        if (Keyboard.current != null && Keyboard.current[droneSummonKey].wasPressedThisFrame)
+        {
+            TrySummonDrone();
+        }
+
+        // --- DRONE GÖNDERME [F] ---
+        // (Oyuncu drone'a bakıyorsa ve F'ye basarsa)
+        if (Keyboard.current != null && Keyboard.current[droneSendKey].wasPressedThisFrame)
+        {
+            TrySendDrone();
         }
 
         // Mouse scroll ile objeyi yakınlaştırıp uzaklaştırma (Yeni Input Sistemi)
@@ -321,6 +357,187 @@ public class PlayerGrabber : NetworkBehaviour
         // Client tarafı referansları temizle
         heldObject = null;
         heldRb = null;
+    }
+
+    /// <summary>
+    /// Oyuncunun baktığı veya yatay olarak en yakın olduğu (belirli mesafe içinde) drone'u bulur.
+    /// </summary>
+    private CarrierDrone FindTargetDroneForInteraction(float maxDistance)
+    {
+        // 1. Önce kameranın merkezinden raycast atarak bir drone'a bakıp bakmadığımızı kontrol edelim
+        RaycastHit hit;
+        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, maxDistance))
+        {
+            CarrierDrone lookedDrone = hit.collider.GetComponentInParent<CarrierDrone>();
+            if (lookedDrone != null)
+            {
+                return lookedDrone;
+            }
+        }
+
+        // 2. Eğer bir drone'a bakmıyorsak, etrafımızdaki tüm drone'lar arasından en yakın olanı bulalım
+        CarrierDrone targetDrone = null;
+        float closestDist = maxDistance;
+        foreach (var drone in CarrierDrone.ActiveDrones)
+        {
+            if (drone == null || !drone.IsSpawned) continue;
+            
+            float xzDist = Vector2.Distance(
+                new Vector2(transform.position.x, transform.position.z),
+                new Vector2(drone.transform.position.x, drone.transform.position.z));
+                
+            if (xzDist < closestDist)
+            {
+                closestDist = xzDist;
+                targetDrone = drone;
+            }
+        }
+
+        return targetDrone;
+    }
+
+    /// <summary>
+    /// Tutulan eşyayı yakındaki drone'a yüklemeyi dener. [G] tuşuyla tetiklenir.
+    /// </summary>
+    void TryLoadIntoDrone()
+    {
+        if (heldObject == null) return;
+
+        CarrierDrone targetDrone = FindTargetDroneForInteraction(20f);
+
+        if (targetDrone == null)
+        {
+            Debug.Log("[PlayerGrabber] Yakında veya baktığınız yönde etkileşime girilecek bir drone bulunamadı!");
+            return;
+        }
+
+        if (targetDrone.OwnerClientId.Value != base.Owner.ClientId)
+        {
+            Debug.Log("[PlayerGrabber] HATA: Bu drone size ait değil, eşya yükleyemezsiniz!");
+            return;
+        }
+
+        // Drone yuklenebilir durumda mi?
+        DroneState state = targetDrone.State.Value;
+        if (state != DroneState.Hovering && state != DroneState.Loading)
+        {
+            Debug.Log("[PlayerGrabber] Seçilen drone su an esya kabul edemiyor.");
+            return;
+        }
+
+        // Client-side ön kontrol (ağırlık)
+        if (targetDrone.CurrentWeight.Value + heldObject.weight > targetDrone.maxCargoWeight)
+        {
+            Debug.Log("[PlayerGrabber] Drone kargo kapasitesi dolu!");
+            return;
+        }
+
+        NetworkObject itemNetObj = heldObject.GetComponent<NetworkObject>();
+        if (itemNetObj == null) return;
+
+        // Yerçekimini geri yükle (despawn öncesi temizlik)
+        if (heldRb != null)
+            heldRb.useGravity = originalUseGravity;
+
+        // Sunucuya yükleme isteği gönder (drone üzerinden)
+        targetDrone.ServerLoadItem(itemNetObj);
+
+        // Client tarafı referansları temizle
+        heldObject = null;
+        heldRb = null;
+    }
+
+    /// Client tarafı: Drone çağırma veya çağırma isteği.
+    /// </summary>
+    void TrySummonDrone()
+    {
+        if (_myActiveDrone != null && _myActiveDrone.IsSpawned)
+        {
+            Debug.Log("[PlayerGrabber] Zaten aktif bir dronunuz var!");
+            return;
+        }
+
+        if (dronePrefab == null)
+        {
+            Debug.LogError("[PlayerGrabber] Drone Prefab atanmamış! Lütfen inspector üzerinden PlayerGrabber'a dronePrefab atayın.");
+            return;
+        }
+
+        // Sunucuya yeni bir drone oluşturmasını veya mevcut onesi getirmesini söyle
+        ServerSpawnAndSummonDrone(transform.position);
+    }
+
+    /// <summary>
+    /// F'ye basıldığında bakılan veya en yakındaki Drone'un bize ait olup olmadığını kontrol edip gidiş emri verir.
+    /// </summary>
+    void TrySendDrone()
+    {
+        CarrierDrone targetDrone = FindTargetDroneForInteraction(15f);
+
+        if (targetDrone == null)
+        {
+            Debug.Log("[PlayerGrabber] Etrafta gönderilecek bir drone bulunamadı!");
+            return;
+        }
+
+        if (targetDrone.OwnerClientId.Value != base.Owner.ClientId)
+        {
+            Debug.Log("[PlayerGrabber] HATA: Göndermeye çalıştığınız drone başkasına ait!");
+            return;
+        }
+
+        // Gönder
+        targetDrone.ServerSendAway();
+    }
+
+    [ServerRpc]
+    private void ServerSpawnAndSummonDrone(Vector3 callerPosition)
+    {
+        // 1. Zaten bir drone varsa tekrar spawn etme
+        if (_myActiveDrone != null && _myActiveDrone.IsSpawned)
+        {
+            return;
+        }
+
+        // 2. Suyun neresinde olduğunu kontrol et
+        WaterZone zone = WaterZone.GetZoneForPosition(callerPosition);
+        if (zone == null)
+        {
+            TargetNotifyLoadFailed(base.Owner, "Drone'u sadece su içindeyken çağırabilirsiniz!");
+            return;
+        }
+
+        // 3. Drone'u yüksekte instatiate/pool et
+        float dropHeight = zone.waterSurfaceY + 50f;
+        Vector3 spawnPos = new Vector3(callerPosition.x, dropHeight, callerPosition.z);
+        
+        NetworkObject droneNetObj = base.NetworkManager.GetPooledInstantiated(dronePrefab.gameObject, spawnPos, Quaternion.identity, asServer: true);
+        
+        // 4. FishNet ServerManager ile Spawn et (Sahiplik Server'da kalmali, boylece interpolasyon calisir)
+        base.ServerManager.Spawn(droneNetObj);
+
+        // 5. Kurulum yap
+        CarrierDrone spawnedDrone = droneNetObj.GetComponent<CarrierDrone>();
+        spawnedDrone.ServerInitAndSummon(this, zone.waterSurfaceY);
+        
+        // Bu sunucu objesini kendimizin olarak işaretleyelim (Gerekirse ClientRPC de atılabilir)
+        _myActiveDrone = spawnedDrone;
+        SetMyActiveDroneClientRpc(droneNetObj);
+    }
+
+    [ObserversRpc(BufferLast = true)]
+    private void SetMyActiveDroneClientRpc(NetworkObject droneNetObj)
+    {
+        if (droneNetObj != null)
+            _myActiveDrone = droneNetObj.GetComponent<CarrierDrone>();
+    }
+
+    [TargetRpc]
+    private void TargetNotifyLoadFailed(NetworkConnection conn, string message)
+    {
+        Debug.Log("[PlayerGrabber] Drone Hatasi: " + message);
+        // Eger projede uygun bir UI yoksa sadece loglayalim veya baska bir UI bulursaniz ekleyebilirsiniz
+        // CargoNotificationUI sildik burdan
     }
 
     /// <summary>
