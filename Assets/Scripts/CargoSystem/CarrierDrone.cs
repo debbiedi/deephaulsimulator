@@ -663,13 +663,6 @@ public class CarrierDrone : NetworkBehaviour
     {
         if (itemNetObj == null) return;
 
-        // Baskasi yukleme yapmasina izin verme
-        if (sender != null && sender.ClientId != OwnerClientId.Value)
-        {
-            TargetNotifyLoadFailed(sender, "Bu drone baskasina ait!");
-            return;
-        }
-
         // Sadece Hovering veya Loading state'inde esya yuklenebilir
         if (State.Value != DroneState.Hovering && State.Value != DroneState.Loading)
         {
