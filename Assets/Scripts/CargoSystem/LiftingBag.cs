@@ -69,6 +69,10 @@ public class LiftingBag : NetworkBehaviour
     [Tooltip("BlendShape index numarası (genelde 0 = ilk shape key)")]
     public int blendShapeIndex = 0;
 
+    [Header("Görsel Efektler")]
+    [Tooltip("Balonun içine konulmuş baloncuk efekti (ParticleSystem)")]
+    public ParticleSystem bubbleEffect;
+
     // --- Co-op pompalama: Sunucu tarafı rate-limit ---
     private Dictionary<int, float> _lastPumpTimes = new Dictionary<int, float>(); // ClientId → son pompa zamanı
     private Dictionary<int, int> _pumpCounts = new Dictionary<int, int>();         // ClientId → bu saniyedeki basış
@@ -198,6 +202,49 @@ public class LiftingBag : NetworkBehaviour
 
         // Eşyayı takip et (parenting yerine her frame pozisyon güncelle)
         FollowTarget();
+
+        // Şişerken veya yukarı çıkarken baloncuk efektini yönet
+        UpdateBubbleEffect();
+    }
+
+    /// <summary>
+    /// Eğer balona bir ParticleSystem atanmışsa, şişerken ve yukarı çıkarken oynatır.
+    /// </summary>
+    private void UpdateBubbleEffect()
+    {
+        if (bubbleEffect == null) return;
+
+        bool shouldPlay = false;
+
+        // 1) Şişme durumundayken ve oyuncular aktif pompalıyorsa
+        if (State.Value == LiftingBagState.Inflating && ActivePumperCount.Value > 0)
+        {
+            shouldPlay = true;
+        }
+
+        // 2) Havalanırken (Inflated veya objenin yukarı hareketi varken belli durumlarda)
+        if (_targetRb != null && State.Value != LiftingBagState.Floating)
+        {
+            if (_targetRb.linearVelocity.y > 0.1f)
+            {
+                shouldPlay = true;
+            }
+        }
+
+        // Floating (yüzeye ulaştığında) baloncuklar dursun
+        if (State.Value == LiftingBagState.Floating)
+        {
+            shouldPlay = false;
+        }
+
+        if (shouldPlay && !bubbleEffect.isPlaying)
+        {
+            bubbleEffect.Play();
+        }
+        else if (!shouldPlay && bubbleEffect.isPlaying)
+        {
+            bubbleEffect.Stop();
+        }
     }
 
     /// <summary>
