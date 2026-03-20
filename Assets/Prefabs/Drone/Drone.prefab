@@ -5379,7 +5379,7 @@ Light:
   m_Type: 0
   m_Color: {r: 0, g: 0.46666667, b: 1, a: 1}
   m_Intensity: 8
-  m_Range: 20
+  m_Range: 2.1280026
   m_SpotAngle: 70
   m_InnerSpotAngle: 50
   m_CookieSize2D: {x: 0.5, y: 0.5}
@@ -10956,6 +10956,7 @@ MonoBehaviour:
   - {fileID: 17322197311979098}
   - {fileID: 8057795214177851648}
   - {fileID: 9151041694118026185}
+  - {fileID: 18845601520381040}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
   RuntimeParentNetworkBehaviour: {fileID: 0}
@@ -10966,7 +10967,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584277501726990262
+  _initializedTimestamp: -8584275618861193132
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -11287,9 +11288,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a68a24d4b3102324a93f7dc356d6fb90, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DroneLightAndEffects
-  _componentIndexCache: 255
+  _componentIndexCache: 3
   _addedNetworkObject: {fileID: 8754830983696580124}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8754830983696580124}
   frontLight: {fileID: 3394264476648911791}
   leftLight: {fileID: 6886325522013759864}
   rightLight: {fileID: 9002618835159114918}
