@@ -480,7 +480,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FishNet.Runtime::FishNet.Object.NetworkObject
   <IsNested>k__BackingField: 0
-  WasActiveDuringEdit: 0
+  WasActiveDuringEdit: 1
   WasActiveDuringEdit_Set1: 1
   <ComponentIndex>k__BackingField: 0
   <PredictedSpawn>k__BackingField: {fileID: 0}
@@ -2953,6 +2953,7 @@ GameObject:
   - component: {fileID: 2823908585404832651}
   - component: {fileID: 4336225408076550258}
   - component: {fileID: 4465927812540762583}
+  - component: {fileID: 2777338379064951165}
   m_Layer: 6
   m_Name: PlayerArmature
   m_TagString: Player
@@ -3486,6 +3487,34 @@ MonoBehaviour:
   _componentIndexCache: 8
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
+--- !u!114 &2777338379064951165
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7722234527922812093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73bcd9f24f7a4fd4584f02b654f501c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PlayerVehicleInteractor
+  _componentIndexCache: 255
+  _addedNetworkObject: {fileID: 8221100990702153553}
+  _networkObjectCache: {fileID: 0}
+  playerCamera: {fileID: 5104582788824523123}
+  holdPoint: {fileID: 5451334987390215397}
+  grabMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  grabRange: 4
+  minHoldDistance: 1.5
+  maxHoldDistance: 6
+  scrollSpeed: 2
+  springForce: 50
+  damper: 5
+  maxForce: 800
+  rotationSpeed: 1.8
 --- !u!1 &7760972134395960278
 GameObject:
   m_ObjectHideFlags: 0

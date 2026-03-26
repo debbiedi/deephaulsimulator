@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using FishNet.Object;
 using FishNet.Connection;
+using FishNet.Object.Synchronizing;
 
 [RequireComponent(typeof(Rigidbody))]
 public class GrabbableObject : NetworkBehaviour
@@ -12,6 +13,10 @@ public class GrabbableObject : NetworkBehaviour
 
     [Header("Size Classification")]
     public ItemSize itemSize = ItemSize.Large; // Varsayılan: Large (mevcut davranış korunur)
+    [Tooltip("Bu obje bir alışveriş sepeti veya ağır bir araç mı?")]
+    public bool isHeavyVehicle = false;
+    [Tooltip("Araç çekilirken oyuncuya bakacak uç kısım (Örn: Sepet Sapı). Boş bırakılırsa varsayılan yönü kullanır.")]
+    public Transform playerFacingNode;
 
     [Header("Rarity")]
     [Tooltip("Bu eşyanın nadirlik seviyesi")]
@@ -36,13 +41,28 @@ public class GrabbableObject : NetworkBehaviour
     public int requiredBagCount = 1;
 
     private Rigidbody rb;
-    private bool _originalIsKinematic;
+    public readonly SyncVar<bool> isFixedInCart = new SyncVar<bool>(false);
     private List<LiftingBag> attachedBags = new List<LiftingBag>();
 
     // --- Public Erişimler (Lifting Bag sistemi için) ---
     public Rigidbody Rb { get { if (rb == null) rb = GetComponent<Rigidbody>(); return rb; } }
     public int AttachedBagCount => attachedBags.Count;
     public bool HasEnoughBags => attachedBags.Count >= requiredBagCount;
+
+    private void Awake()
+    {
+        isFixedInCart.OnChange += OnFixedInCartChanged;
+    }
+
+    private void OnDestroy()
+    {
+        isFixedInCart.OnChange -= OnFixedInCartChanged;
+    }
+
+    private void OnFixedInCartChanged(bool prev, bool next, bool asServer)
+    {
+        UpdatePhysicsAuthority();
+    }
 
     /// <summary>
     /// Bu eşyaya kaldırma balonu takılabilir mi?
@@ -87,9 +107,16 @@ public class GrabbableObject : NetworkBehaviour
     /// Sahip olan istemcide fizik aktif, diğerlerinde kinematik.
     /// Bu, NetworkTransform ile Rigidbody çakışmasını önler (titreşimi engeller).
     /// </summary>
-    private void UpdatePhysicsAuthority()
+    public void UpdatePhysicsAuthority()
     {
         if (rb == null) rb = GetComponent<Rigidbody>();
+
+        if (isFixedInCart.Value)
+        {
+            rb.isKinematic = true;
+            rb.interpolation = RigidbodyInterpolation.None;
+            return;
+        }
 
         if (base.IsOwner || base.IsServerInitialized)
         {
@@ -113,8 +140,9 @@ public class GrabbableObject : NetworkBehaviour
             return;
         }
 
-        // 2. GÜVENLİK: Çarptığımız obje veya ebeveyni CarrierDrone içeriyorsa kesinlikle hasar alma (layer ayarlanmayı unutulursa korur)
-        if (collision.gameObject.GetComponentInParent<CarrierDrone>() != null)
+        // 2. GÜVENLİK: Çarptığımız obje veya ebeveyni CarrierDrone veya CartController içeriyorsa kesinlikle hasar alma
+        if (collision.gameObject.GetComponentInParent<CarrierDrone>() != null || 
+            collision.gameObject.GetComponentInParent<CartController>() != null)
         {
             return;
         }
