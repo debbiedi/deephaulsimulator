@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(powershell -Command \"Get-Content ''c:\\\\Projects\\\\deephaulsimulator\\\\deephaulsimulator\\\\Assets\\\\Prefabs\\\\Characters\\\\Player.prefab'' | Select-String -Pattern ''m_Name:'' | head -50\")",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(ls -la \"c:\\\\Projects\\\\deephaulsimulator\\\\deephaulsimulator\\\\Assets\\\\Models\\\\Characters\\\\Character\\\\Dalgıçerkek_1\"\" 2>&1 || ls -la \"c:ProjectsdeephaulsimulatordeephaulsimulatorAssetsModelsCharactersCharacter\"\")",
+      "Bash(dir:*)"
     ]
   }
 }
