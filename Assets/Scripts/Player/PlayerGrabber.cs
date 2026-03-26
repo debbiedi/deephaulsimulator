@@ -227,10 +227,13 @@ public class PlayerGrabber : NetworkBehaviour
         // Kameranın ortasından (veya bakış yönünden) yolla ama oyuncuyu yoksay (grabMask kullanarak)
         if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, grabRange, grabMask))
         {
-            // Çarptığımız obje GrabbableObject scriptine sahip mi?
-            GrabbableObject grabbable = hit.collider.GetComponent<GrabbableObject>();
+            // Çarptığımız obje GrabbableObject scriptine sahip mi? (Alt objelerine çarpsa da ana objeyi bulması için GetComponentInParent kullanıyoruz)
+            GrabbableObject grabbable = hit.collider.GetComponentInParent<GrabbableObject>();
             if (grabbable != null)
             {
+                // Ağır araçlarsa PlayerGrabber eline almaz. Bunu yeni PlayerVehicleInteractor sistemi halledecek.
+                if (grabbable.isHeavyVehicle) return;
+
                 if (grabbable.AttachedBagCount > 0)
                 {
                     Debug.Log("Bu eşyaya balon takılı, taşınamaz.");
