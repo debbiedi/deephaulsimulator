@@ -134,6 +134,9 @@ public class GrabbableObject : NetworkBehaviour
 
     void OnCollisionEnter(Collision collision)
     {
+        // ARAÇLAR (Sepet vb.) HİÇBİR ZAMAN HASAR ALMAZ!
+        if (isHeavyVehicle) return;
+
         // 1. GÜVENLİK: Çarptığımız obje güvenli bir katmandaysa hasar alma (Örn: Drone layer'ı inspector'dan seçilmişse)
         if ((safeCollisionLayers.value & (1 << collision.gameObject.layer)) > 0)
         {
