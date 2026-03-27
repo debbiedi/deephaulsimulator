@@ -69,7 +69,7 @@ public class PlayerVehicleInteractor : NetworkBehaviour
         Vector3 error = targetPosition - heldRb.position;
 
         // Araç çok uzağa kalırsa (Engellere takılırsa vs.) otomatik bırak
-        if (error.magnitude > 6f)
+        if (error.magnitude > 7f)
         {
             ReleaseVehicle();
             return;
@@ -80,6 +80,23 @@ public class PlayerVehicleInteractor : NetworkBehaviour
         if (force.magnitude > maxForce)
         {
             force = force.normalized * maxForce;
+        }
+
+        // Duvara çarptığında zorlamasını engellemek için Raycast duvar kontrolü
+        // Araba hareket edeceği yönde çok yakın bir duvara çarpıyorsa itme kuvvetini sıfırla (veya çok düşür)
+        if (force.sqrMagnitude > 0.1f)
+        {
+            float checkDistance = 1.0f; // Ne kadar ilerisine bakacak
+            // Aracın merkezinden itileceği yöne doğru kısa bir ışın gönder, eger duvar varsa gücü uygulatma.
+            if (Physics.SphereCast(heldRb.position, 0.5f, force.normalized, out RaycastHit hit, checkDistance, grabMask))
+            {
+                // Çarpılan şey oyuncu değilse gücü kes/zayıflat (titremeyi engeller)
+                if (hit.collider.gameObject.layer != LayerMask.NameToLayer("Player"))
+                {
+                    // Gücü %90 azalt
+                    force *= 0.1f;
+                }
+            }
         }
 
         // Kütle ile çarp (Ağır olsa bile belli bir ivme kazanabilmesi için)

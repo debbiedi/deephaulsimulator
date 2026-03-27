@@ -36,6 +36,7 @@ public class CartCargoZone : NetworkBehaviour
                         item.isFixedInCart.Value = true;
                         itemNetObj.SetParent(this.NetworkObject);
                         item.UpdatePhysicsAuthority();
+                        RpcIgnoreCollisions(itemNetObj, true);
                     }
                 }
             }
@@ -46,7 +47,30 @@ public class CartCargoZone : NetworkBehaviour
                 {
                     item.isFixedInCart.Value = false;
                     item.UpdatePhysicsAuthority();
+                    RpcIgnoreCollisions(itemNetObj, false);
                 }
+            }
+        }
+    }
+
+    [ObserversRpc]
+    private void RpcIgnoreCollisions(NetworkObject itemNetObj, bool ignore)
+    {
+        if (itemNetObj == null) return;
+        
+        CartController cart = GetComponentInParent<CartController>();
+        if (cart == null) return;
+
+        Collider[] cartCols = cart.GetComponentsInChildren<Collider>();
+        Collider[] itemCols = itemNetObj.GetComponentsInChildren<Collider>();
+
+        foreach (var c1 in cartCols)
+        {
+            if (c1.isTrigger) continue; // Triggerları (CargoZone alanı vs.) iptal etme, yoksa item sepetten çıktığını sanıp düşer
+            foreach (var c2 in itemCols)
+            {
+                if (c2.isTrigger) continue;
+                Physics.IgnoreCollision(c1, c2, ignore);
             }
         }
     }
@@ -83,6 +107,7 @@ public class CartCargoZone : NetworkBehaviour
                 {
                     item.isFixedInCart.Value = false;
                     item.UpdatePhysicsAuthority();
+                    RpcIgnoreCollisions(itemNetObj, false);
                 }
             }
         }
