@@ -12,9 +12,29 @@ public class CartCargoZone : NetworkBehaviour
     [Tooltip("Eşya hız limiti. Bu hızın altındaysa araca sabitlenir.")]
     public float sleepVelocityThreshold = 0.5f;
 
+    private Rigidbody cartRb;
+    private bool wasCartHeld;
+
+    private void Start()
+    {
+        CartController cart = GetComponentInParent<CartController>();
+        if (cart != null) cartRb = cart.GetComponent<Rigidbody>();
+    }
+
     private void Update()
     {
         if (!IsServerInitialized) return;
+
+        // Sepet şu an bir oyuncu tarafından tutuluyor mu?
+        CartController cartCtrl = GetComponentInParent<CartController>();
+        bool cartIsHeld = cartCtrl != null && cartCtrl.Owner.IsValid;
+        
+        // Sepet yeni tutulmaya başlandıysa, içindeki TÜM serbest eşyaları anında sabitle
+        if (cartIsHeld && !wasCartHeld)
+        {
+            FixAllItemsImmediately();
+        }
+        wasCartHeld = cartIsHeld;
 
         // Sepetteki eşyaları kontrol et ve uykuya/sabit duruma geçenleri parent yap
         for (int i = 0; i < itemsInCart.Count; i++)
@@ -25,13 +45,18 @@ public class CartCargoZone : NetworkBehaviour
             NetworkObject itemNetObj = item.GetComponent<NetworkObject>();
             if (itemNetObj == null) continue;
 
-            // Eğer obje birisi tarafından tutulmuyorsa ve hızı düşükse sabitle
+            // Eğer obje birisi tarafından tutulmuyorsa sabitle
             if (!itemNetObj.Owner.IsValid) 
             {
-                if (!item.isFixedInCart.Value && item.Rb != null && item.Rb.linearVelocity.magnitude < sleepVelocityThreshold)
+                if (!item.isFixedInCart.Value && item.Rb != null)
                 {
-                    // Parent olarak sepeti ayarla ve fiziği dondur (Kinematic yap)
-                    if (itemNetObj.transform.parent != this.transform)
+                    // Eşyanın sepete göre bağıl hızını hesapla.
+                    // Böylece sepet hızlı hareket etse bile, içinde oturmuş eşya düşük bağıl hıza sahip olur
+                    // ve doğru (yerleşmiş) pozisyonda sabitlenir.
+                    Vector3 relativeVelocity = item.Rb.linearVelocity;
+                    if (cartRb != null) relativeVelocity -= cartRb.linearVelocity;
+                    
+                    if (relativeVelocity.magnitude < sleepVelocityThreshold && itemNetObj.transform.parent != this.transform)
                     {
                         item.isFixedInCart.Value = true;
                         itemNetObj.SetParent(this.NetworkObject);
@@ -66,12 +91,34 @@ public class CartCargoZone : NetworkBehaviour
 
         foreach (var c1 in cartCols)
         {
-            if (c1.isTrigger) continue; // Triggerları (CargoZone alanı vs.) iptal etme, yoksa item sepetten çıktığını sanıp düşer
+            if (c1.isTrigger) continue;
             foreach (var c2 in itemCols)
             {
                 if (c2.isTrigger) continue;
                 Physics.IgnoreCollision(c1, c2, ignore);
             }
+        }
+    }
+
+    /// <summary>
+    /// Sepet tutulduğunda içindeki tüm serbest eşyaları anında kinematic yapıp sepete bağlar.
+    /// Böylece sepet hareket ettirildiğinde eşyalar geriye kalıp yandan çıkamaz.
+    /// </summary>
+    private void FixAllItemsImmediately()
+    {
+        for (int i = 0; i < itemsInCart.Count; i++)
+        {
+            var item = itemsInCart[i];
+            if (item == null || item.isFixedInCart.Value) continue;
+
+            NetworkObject itemNetObj = item.GetComponent<NetworkObject>();
+            if (itemNetObj == null) continue;
+            if (itemNetObj.Owner.IsValid) continue; // Birisi tutuyorsa dokunma
+
+            item.isFixedInCart.Value = true;
+            itemNetObj.SetParent(this.NetworkObject);
+            item.UpdatePhysicsAuthority();
+            RpcIgnoreCollisions(itemNetObj, true);
         }
     }
 
@@ -83,6 +130,12 @@ public class CartCargoZone : NetworkBehaviour
             if (!item.isHeavyVehicle)
             {
                 itemsInCart.Add(item);
+                
+                // Eşyanın çarpışma algılamasını iyileştir: hızlı hareket sırasında sepetin duvarlarından geçmesini önle
+                if (item.Rb != null)
+                {
+                    item.Rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
+                }
             }
         }
     }

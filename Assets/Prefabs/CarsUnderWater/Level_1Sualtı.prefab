@@ -142,8 +142,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.8170967, y: 0.44572204, z: 0.045817375}
-  m_Center: {x: 0.023256302, y: 0.3775184, z: 0.53347254}
+  m_Size: {x: 1.8170967, y: 0.51536703, z: 0.045817375}
+  m_Center: {x: 0.023256302, y: 0.3426959, z: 0.53347254}
 --- !u!65 &2250463591667307668
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -163,8 +163,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1.8163061, y: 0.4548828, z: 0.045817375}
-  m_Center: {x: 0.0236516, y: 0.38209876, z: -0.57}
+  m_Size: {x: 1.8163061, y: 0.53753304, z: 0.045817375}
+  m_Center: {x: 0.0236516, y: 0.34077364, z: -0.57}
 --- !u!1 &1521975014906948156
 GameObject:
   m_ObjectHideFlags: 0
@@ -217,8 +217,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 1, y: 1, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
+  m_Size: {x: 1.044365, y: 0.95998746, z: 1.011137}
+  m_Center: {x: -0.006545361, y: 0.006881898, z: 0.005568805}
 --- !u!114 &1307246363951658902
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -231,7 +231,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c72e423c16a7f0b438bfc629166e26d4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CartCargoZone
-  _componentIndexCache: 1
+  _componentIndexCache: 2
   _addedNetworkObject: {fileID: 3065943637785008811}
   _networkObjectCache: {fileID: 3065943637785008811}
   cargoContainer: {fileID: 0}
@@ -469,9 +469,9 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 7059294442716944179}
   serializedVersion: 5
-  m_Mass: 150
-  m_LinearDamping: 3
-  m_AngularDamping: 0.05
+  m_Mass: 130
+  m_LinearDamping: 2
+  m_AngularDamping: 7
   m_CenterOfMass: {x: 0, y: 0, z: 0}
   m_InertiaTensor: {x: 1, y: 1, z: 1}
   m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
@@ -485,7 +485,7 @@ Rigidbody:
   m_ImplicitTensor: 1
   m_UseGravity: 1
   m_IsKinematic: 0
-  m_Interpolate: 0
+  m_Interpolate: 1
   m_Constraints: 0
   m_CollisionDetection: 0
 --- !u!114 &1459116617124286208
@@ -503,9 +503,9 @@ MonoBehaviour:
   _componentIndexCache: 0
   _addedNetworkObject: {fileID: 3065943637785008811}
   _networkObjectCache: {fileID: 3065943637785008811}
-  centerOfMassOffset: {x: 0, y: -1.5, z: 0}
-  uprightTorque: 100
-  uprightDamper: 15
+  centerOfMassOffset: {x: 0, y: -1, z: 0}
+  uprightTorque: 70
+  uprightDamper: 12
 --- !u!114 &3065943637785008811
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -526,8 +526,8 @@ MonoBehaviour:
   <PredictedOwner>k__BackingField: {fileID: 0}
   NetworkBehaviours:
   - {fileID: 1459116617124286208}
+  - {fileID: 2199171005941517390}
   - {fileID: 1307246363951658902}
-  - {fileID: 0}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
   RuntimeParentNetworkBehaviour: {fileID: 0}
@@ -538,7 +538,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584270709464772388
+  _initializedTimestamp: -8584268884935867151
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -554,12 +554,12 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 3
+  <PrefabId>k__BackingField: 2
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 9583054172712527619
   SceneId: 0
   SerializedTransformProperties:
-    Position: {x: -9.1, y: 0.6098563, z: 14.39}
+    Position: {x: -9.1, y: 0.6098562, z: 14.39}
     Rotation: {x: 0, y: 0, z: 0, w: 1}
     Scale: {x: 1, y: 1, z: 1}
     IsValid: 1
@@ -596,9 +596,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 738f6a70571214770bf2b3ecb112fd02, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::GrabbableObject
-  _componentIndexCache: 255
+  _componentIndexCache: 1
   _addedNetworkObject: {fileID: 3065943637785008811}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 3065943637785008811}
   itemName: Unnamed Item
   itemId: 
   itemSize: 3
