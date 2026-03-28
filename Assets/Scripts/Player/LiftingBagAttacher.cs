@@ -84,8 +84,9 @@ public class LiftingBagAttacher : NetworkBehaviour
             // Tutulan eşya yoksa bakılan eşya var mı ona bakalım
             else if (playerGrabber.playerCamera != null)
             {
+                Ray ray = playerGrabber.GetCrosshairRay();
                 RaycastHit hit;
-                if (Physics.Raycast(playerGrabber.playerCamera.position, playerGrabber.playerCamera.forward, out hit, playerGrabber.grabRange, playerGrabber.grabMask))
+                if (Physics.Raycast(ray, out hit, playerGrabber.GetActualGrabRange(), playerGrabber.grabMask))
                 {
                     targetItem = hit.collider.GetComponentInParent<GrabbableObject>();
                 }

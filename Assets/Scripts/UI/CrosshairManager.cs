@@ -120,4 +120,23 @@ public class CrosshairManager : MonoBehaviour
             tpsCrosshairImage.color = Color.green; // İstediğiniz gibi opsiyonel bir renk ekleyebilirsiniz
         }
     }
+
+    /// <summary>
+    /// Aktif olan crosshair'in ekran koordinatlarını (Screen Space) döndürür.
+    /// Raycast işlemleri (ScreenPointToRay) için kullanılır.
+    /// </summary>
+    public Vector3 GetActiveCrosshairPosition()
+    {
+        if (tpsCrosshairImage != null && tpsCrosshairImage.enabled)
+        {
+            return tpsCrosshairImage.transform.position;
+        }
+        if (crosshairImage != null && crosshairImage.enabled)
+        {
+            return crosshairImage.transform.position;
+        }
+        
+        // Eğer hiçbir crosshair aktif değilse, ekranın ortasını döndür
+        return new Vector3(Screen.width / 2f, Screen.height / 2f, 0f);
+    }
 }
