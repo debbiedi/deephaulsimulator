@@ -69,6 +69,10 @@ public class CameraModeManager : NetworkBehaviour
 
     private void Awake()
     {
+        // KESİN VE NET ÇÖZÜM: Inspector'dan ne ayarlanırsa ayarlansın kod bunu ezip mecburi yapacak
+        hideCharacterInFPS = true; 
+        fpsNearClipPlane = 0.35f;
+
         ResolveCinemachineComponents();
     }
 
@@ -342,7 +346,11 @@ public class CameraModeManager : NetworkBehaviour
     }
 
     private void SetCharacterRenderersVisible(bool visible)
-    {
+    {        // Eğer Inspector'dan renderer atanmamışsa her şeyi otomatik bulur (KESİN ÇÖZÜM)
+        if (characterRenderers == null || characterRenderers.Length == 0)       
+        {
+            characterRenderers = transform.root.GetComponentsInChildren<Renderer>();
+        }
         if (characterRenderers == null) return;
 
         foreach (var renderer in characterRenderers)
