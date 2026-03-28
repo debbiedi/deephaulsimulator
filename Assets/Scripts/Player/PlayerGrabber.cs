@@ -72,6 +72,30 @@ public class PlayerGrabber : NetworkBehaviour
     private Vector3 _collectStartPos;
     private Vector3 _collectStartScale;
 
+    public Ray GetCrosshairRay()
+    {
+        if (playerCamera == null) return new Ray(transform.position, transform.forward);
+        
+        Camera cam = playerCamera.GetComponent<Camera>();
+        if (cam == null) cam = Camera.main;
+        if (cam == null) return new Ray(playerCamera.position, playerCamera.forward);
+        
+        Vector3 screenPos = new Vector3(Screen.width / 2f, Screen.height / 2f, 0f);
+        if (CrosshairManager.Instance != null)
+        {
+            screenPos = CrosshairManager.Instance.GetActiveCrosshairPosition();
+        }
+        return cam.ScreenPointToRay(screenPos);
+    }
+
+    public float GetActualGrabRange()
+    {
+        if (playerCamera == null) return grabRange;
+        // TPS kamerasında kamera karakterin arkasında kaldığı için, atılan ışın hedefe ulaşmadan bitebilir.
+        // Bu yüzden kameranın karaktere olan uzaklığını, objeyi tutma menziline ekliyoruz.
+        return grabRange + Vector3.Distance(playerCamera.position, transform.position);
+    }
+
     void Update()
     {
         // Benim objem değil ise çalışma
@@ -87,17 +111,20 @@ public class PlayerGrabber : NetworkBehaviour
         // TEST İÇİN: Baktığımız yeri Scene (ve Gizmos açıksa Game) penceresinde çizgi olarak çizer
         if (playerCamera != null)
         {
+            Ray ray = GetCrosshairRay();
+            float actualRange = GetActualGrabRange();
             RaycastHit checkHit;
-            if (Physics.Raycast(playerCamera.position, playerCamera.forward, out checkHit, grabRange, grabMask))
+            
+            if (Physics.Raycast(ray, out checkHit, actualRange, grabMask))
             {
                 // Eğer tutabileceğimiz bir objeye (GrabbableObject) bakıyorsak Yeşil, değilse Kırmızı ışın çizer
                 Color rayColor = checkHit.collider.GetComponent<GrabbableObject>() != null ? Color.green : Color.red;
-                Debug.DrawRay(playerCamera.position, playerCamera.forward * checkHit.distance, rayColor);
+                Debug.DrawRay(ray.origin, ray.direction * checkHit.distance, rayColor);
             }
             else
             {
                 // Hiçbir engele çarpmıyorsa kırmızı ve max menzilde çizer
-                Debug.DrawRay(playerCamera.position, playerCamera.forward * grabRange, Color.red);
+                Debug.DrawRay(ray.origin, ray.direction * actualRange, Color.red);
             }
         }
 
@@ -181,11 +208,11 @@ public class PlayerGrabber : NetworkBehaviour
         if (heldRb != null)
         {
             // TPS Karakter kontrolcüsünde WASD'ye basınca karakter döner, bu da objenin karakterle birlikte sağa sola uçmasına sebep oluyordu.
-            // Bu yüzden objenin yönünü her zaman MAUSE'nin (Kameranın) baktığı yön (playerCamera.forward) olarak ayarlıyoruz.
-            // Başlangıç noktası olarak holdPoint (karakterin önü) kullanılsa bile yön kameraya göre belirlenir.
-            Vector3 targetPosition = holdPoint != null ? 
-                holdPoint.position + playerCamera.forward * currentHoldDistance : 
-                playerCamera.position + playerCamera.forward * currentHoldDistance;
+            // Objeyi crosshair'in (kameranın merkezinin) gösterdiği hizada tutmak için, hedefini doğrudan kameranın ışını üzerinde belirliyoruz.
+            // Böylece obje her zaman ekranın ortasını (crosshair'i) takip eder.
+            Ray ray = GetCrosshairRay();
+            float camToHoldPointDist = holdPoint != null ? Vector3.Distance(playerCamera.position, holdPoint.position) : 0f;
+            Vector3 targetPosition = ray.origin + ray.direction * (camToHoldPointDist + currentHoldDistance);
 
             // Aradaki mesafe (Hata payı)
             Vector3 error = targetPosition - heldRb.position;
@@ -223,9 +250,11 @@ public class PlayerGrabber : NetworkBehaviour
 
     void TryGrab()
     {
+        Ray ray = GetCrosshairRay();
+        float actualRange = GetActualGrabRange();
         RaycastHit hit;
         // Kameranın ortasından (veya bakış yönünden) yolla ama oyuncuyu yoksay (grabMask kullanarak)
-        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, grabRange, grabMask))
+        if (Physics.Raycast(ray, out hit, actualRange, grabMask))
         {
             // Çarptığımız obje GrabbableObject scriptine sahip mi? (Alt objelerine çarpsa da ana objeyi bulması için GetComponentInParent kullanıyoruz)
             GrabbableObject grabbable = hit.collider.GetComponentInParent<GrabbableObject>();
@@ -368,8 +397,9 @@ public class PlayerGrabber : NetworkBehaviour
     private CarrierDrone FindTargetDroneForInteraction(float maxDistance)
     {
         // 1. Önce kameranın merkezinden raycast atarak bir drone'a bakıp bakmadığımızı kontrol edelim
+        Ray ray = GetCrosshairRay();
         RaycastHit hit;
-        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, maxDistance))
+        if (Physics.Raycast(ray, out hit, maxDistance))
         {
             CarrierDrone lookedDrone = hit.collider.GetComponentInParent<CarrierDrone>();
             if (lookedDrone != null)

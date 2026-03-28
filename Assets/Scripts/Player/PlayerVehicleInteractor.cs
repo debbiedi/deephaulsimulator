@@ -146,7 +146,11 @@ public class PlayerVehicleInteractor : NetworkBehaviour
     void TryGrabVehicle()
     {
         RaycastHit hit;
-        if (Physics.Raycast(playerCamera.position, playerCamera.forward, out hit, grabRange, grabMask))
+        PlayerGrabber grabber = GetComponent<PlayerGrabber>();
+        Ray ray = grabber != null ? grabber.GetCrosshairRay() : new Ray(playerCamera.position, playerCamera.forward);
+        float actualGrabRange = grabber != null ? grabRange + Vector3.Distance(playerCamera.position, transform.position) : grabRange;
+
+        if (Physics.Raycast(ray, out hit, actualGrabRange, grabMask))
         {
             GrabbableObject grabbable = hit.collider.GetComponentInParent<GrabbableObject>();
             

@@ -6,8 +6,10 @@ public class CrosshairManager : MonoBehaviour
     public static CrosshairManager Instance { get; private set; }
 
     [Header("UI Referansları")]
-    [Tooltip("Crosshair'in gösterileceği Image bileşeni")]
+    [Tooltip("FPS Crosshair'in gösterileceği Image bileşeni")]
     public Image crosshairImage;
+    [Tooltip("TPS Crosshair'in gösterileceği Image bileşeni (Sağ omuz hizası vb.)")]
+    public Image tpsCrosshairImage;
 
     [Header("Crosshair Görselleri (Sprites)")]
     [Tooltip("Normal durumdaki crosshair görseli (Nokta vs.)")]
@@ -33,7 +35,7 @@ public class CrosshairManager : MonoBehaviour
         }
         else
         {
-            SetCrosshairVisible(false);
+            SetCrosshairState(false, false);
         }
     }
 
@@ -48,25 +50,36 @@ public class CrosshairManager : MonoBehaviour
 
     private void HandleCameraModeChanged(CameraMode mode)
     {
-        // Sadece FPS modundaysa crosshair'i göster
         if (mode == CameraMode.FPS)
         {
-            SetCrosshairVisible(true);
+            SetCrosshairState(true, false);
+        }
+        else if (mode == CameraMode.TPS)
+        {
+            SetCrosshairState(false, true);
         }
         else
         {
-            SetCrosshairVisible(false);
+            SetCrosshairState(false, false);
         }
     }
 
-    private void SetCrosshairVisible(bool isVisible)
+    private void SetCrosshairState(bool fpsVisible, bool tpsVisible)
     {
         if (crosshairImage != null)
         {
-            crosshairImage.enabled = isVisible;
-            
-            // Eğer açıldıysa standart sprite'ı göster
-            if (isVisible) SetDefaultCrosshair();
+            crosshairImage.enabled = fpsVisible;
+        }
+
+        if (tpsCrosshairImage != null)
+        {
+            tpsCrosshairImage.enabled = tpsVisible;
+        }
+        
+        // Eğer herhangi biri açıldıysa standart sprite'ı göster
+        if (fpsVisible || tpsVisible)
+        {
+            SetDefaultCrosshair();
         }
     }
 
@@ -81,6 +94,12 @@ public class CrosshairManager : MonoBehaviour
             crosshairImage.sprite = defaultCrosshair;
             crosshairImage.color = Color.white; // Rengini sıfırla
         }
+
+        if (tpsCrosshairImage != null && defaultCrosshair != null)
+        {
+            tpsCrosshairImage.sprite = defaultCrosshair;
+            tpsCrosshairImage.color = Color.white; // Rengini sıfırla
+        }
     }
 
     /// <summary>
@@ -94,5 +113,30 @@ public class CrosshairManager : MonoBehaviour
             crosshairImage.sprite = interactableCrosshair;
             crosshairImage.color = Color.green; // İstediğiniz gibi opsiyonel bir renk ekleyebilirsiniz
         }
+
+        if (tpsCrosshairImage != null && interactableCrosshair != null)
+        {
+            tpsCrosshairImage.sprite = interactableCrosshair;
+            tpsCrosshairImage.color = Color.green; // İstediğiniz gibi opsiyonel bir renk ekleyebilirsiniz
+        }
+    }
+
+    /// <summary>
+    /// Aktif olan crosshair'in ekran koordinatlarını (Screen Space) döndürür.
+    /// Raycast işlemleri (ScreenPointToRay) için kullanılır.
+    /// </summary>
+    public Vector3 GetActiveCrosshairPosition()
+    {
+        if (tpsCrosshairImage != null && tpsCrosshairImage.enabled)
+        {
+            return tpsCrosshairImage.transform.position;
+        }
+        if (crosshairImage != null && crosshairImage.enabled)
+        {
+            return crosshairImage.transform.position;
+        }
+        
+        // Eğer hiçbir crosshair aktif değilse, ekranın ortasını döndür
+        return new Vector3(Screen.width / 2f, Screen.height / 2f, 0f);
     }
 }
