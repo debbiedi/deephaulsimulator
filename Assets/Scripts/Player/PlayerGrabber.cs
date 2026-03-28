@@ -252,43 +252,51 @@ public class PlayerGrabber : NetworkBehaviour
     {
         Ray ray = GetCrosshairRay();
         float actualRange = GetActualGrabRange();
-        RaycastHit hit;
-        // Kameranın ortasından (veya bakış yönünden) yolla ama oyuncuyu yoksay (grabMask kullanarak)
-        if (Physics.Raycast(ray, out hit, actualRange, grabMask))
+        
+        // RaycastAll ile ışın yolundaki tüm objeleri al (sepetin arkasındaki/içindeki eşyaları da yakala)
+        RaycastHit[] hits = Physics.RaycastAll(ray, actualRange, grabMask);
+        
+        // Mesafeye göre sırala (en yakından en uzağa)
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        
+        GrabbableObject grabbable = null;
+        foreach (var hit in hits)
         {
-            // Çarptığımız obje GrabbableObject scriptine sahip mi? (Alt objelerine çarpsa da ana objeyi bulması için GetComponentInParent kullanıyoruz)
-            GrabbableObject grabbable = hit.collider.GetComponentInParent<GrabbableObject>();
-            if (grabbable != null)
+            GrabbableObject candidate = hit.collider.GetComponentInParent<GrabbableObject>();
+            if (candidate != null && !candidate.isHeavyVehicle)
             {
-                // Ağır araçlarsa PlayerGrabber eline almaz. Bunu yeni PlayerVehicleInteractor sistemi halledecek.
-                if (grabbable.isHeavyVehicle) return;
-
-                if (grabbable.AttachedBagCount > 0)
-                {
-                    Debug.Log("Bu eşyaya balon takılı, taşınamaz.");
-                    return;
-                }
-
-                heldObject = grabbable;
-                heldRb = grabbable.GetComponent<Rigidbody>();
-                
-                // Objenin sahipliğini sunucudan üzerimize alıyoruz
-                NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
-                if (netObj != null)
-                {
-                    ServerTakeOwnership(netObj);
-                }
-
-                // Objenin tutulma mesafesi başlangıcını, referans noktasına (holdPoint veya kamera) göre ayarla
-                Vector3 referencePos = holdPoint != null ? holdPoint.position : playerCamera.position;
-                currentHoldDistance = Vector3.Distance(referencePos, heldRb.position);
-                currentHoldDistance = Mathf.Clamp(currentHoldDistance, minHoldDistance, maxHoldDistance);
-
-                // Fizik ayarlarını geçici olarak tutuş için uygun hale getir
-                originalUseGravity = heldRb.useGravity;
-                heldRb.useGravity = false; // Tutarken yerçekimini kapat ki aşağı çekmesin, yay gibi dengede kalsın
-                heldRb.interpolation = RigidbodyInterpolation.Interpolate; // Kamerada titremeden gözükmesi için
+                grabbable = candidate;
+                break;
             }
+        }
+        
+        if (grabbable != null)
+        {
+            if (grabbable.AttachedBagCount > 0)
+            {
+                Debug.Log("Bu eşyaya balon takılı, taşınamaz.");
+                return;
+            }
+
+            heldObject = grabbable;
+            heldRb = grabbable.GetComponent<Rigidbody>();
+            
+            // Objenin sahipliğini sunucudan üzerimize alıyoruz
+            NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
+            if (netObj != null)
+            {
+                ServerTakeOwnership(netObj);
+            }
+
+            // Objenin tutulma mesafesi başlangıcını, referans noktasına (holdPoint veya kamera) göre ayarla
+            Vector3 referencePos = holdPoint != null ? holdPoint.position : playerCamera.position;
+            currentHoldDistance = Vector3.Distance(referencePos, heldRb.position);
+            currentHoldDistance = Mathf.Clamp(currentHoldDistance, minHoldDistance, maxHoldDistance);
+
+            // Fizik ayarlarını geçici olarak tutuş için uygun hale getir
+            originalUseGravity = heldRb.useGravity;
+            heldRb.useGravity = false; // Tutarken yerçekimini kapat ki aşağı çekmesin, yay gibi dengede kalsın
+            heldRb.interpolation = RigidbodyInterpolation.Interpolate; // Kamerada titremeden gözükmesi için
         }
     }
 

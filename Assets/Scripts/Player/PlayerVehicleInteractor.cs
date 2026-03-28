@@ -90,8 +90,11 @@ public class PlayerVehicleInteractor : NetworkBehaviour
             // Aracın merkezinden itileceği yöne doğru kısa bir ışın gönder, eger duvar varsa gücü uygulatma.
             if (Physics.SphereCast(heldRb.position, 0.5f, force.normalized, out RaycastHit hit, checkDistance, grabMask))
             {
-                // Çarpılan şey oyuncu değilse gücü kes/zayıflat (titremeyi engeller)
-                if (hit.collider.gameObject.layer != LayerMask.NameToLayer("Player"))
+                // Çarpılan şey oyuncu veya sepetin kendi içindeki bir eşya/parça değilse gücü kes/zayıflat
+                bool isPlayer = hit.collider.gameObject.layer == LayerMask.NameToLayer("Player");
+                bool isChildOfCart = hit.collider.transform.IsChildOf(heldRb.transform);
+                
+                if (!isPlayer && !isChildOfCart)
                 {
                     // Gücü %90 azalt
                     force *= 0.1f;
@@ -145,42 +148,62 @@ public class PlayerVehicleInteractor : NetworkBehaviour
 
     void TryGrabVehicle()
     {
-        RaycastHit hit;
         PlayerGrabber grabber = GetComponent<PlayerGrabber>();
         Ray ray = grabber != null ? grabber.GetCrosshairRay() : new Ray(playerCamera.position, playerCamera.forward);
         float actualGrabRange = grabber != null ? grabRange + Vector3.Distance(playerCamera.position, transform.position) : grabRange;
 
-        if (Physics.Raycast(ray, out hit, actualGrabRange, grabMask))
+        // RaycastAll ile ışın yolundaki tüm objeleri al
+        RaycastHit[] hits = Physics.RaycastAll(ray, actualGrabRange, grabMask);
+        System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+        
+        // Eğer ışın yolunda araç olmayan tutulabilir bir eşya varsa, sepeti tutma
+        // (Oyuncu muhtemelen o eşyayı almak istiyor, PlayerGrabber halledecek)
+        foreach (var h in hits)
         {
-            GrabbableObject grabbable = hit.collider.GetComponentInParent<GrabbableObject>();
-            
-            // Sadece 'isHeavyVehicle' olarak işaretlenmiş objeleri tutabiliriz
-            if (grabbable != null && grabbable.isHeavyVehicle)
+            GrabbableObject candidate = h.collider.GetComponentInParent<GrabbableObject>();
+            if (candidate != null && !candidate.isHeavyVehicle)
             {
-                if (grabbable.AttachedBagCount > 0)
-                {
-                    Debug.Log("Bu araca balon takılı, taşınamaz.");
-                    return;
-                }
-
-                heldVehicle = grabbable;
-                heldRb = grabbable.GetComponent<Rigidbody>();
-                
-                // Network Sahipliğini İste (Eşya tutma ile aynı mantık)
-                NetworkObject netObj = heldVehicle.GetComponent<NetworkObject>();
-                if (netObj != null)
-                {
-                    ServerTakeOwnership(netObj);
-                }
-
-                Vector3 referencePos = holdPoint != null ? holdPoint.position : playerCamera.position;
-                currentHoldDistance = Vector3.Distance(referencePos, heldRb.position);
-                currentHoldDistance = Mathf.Clamp(currentHoldDistance, minHoldDistance, maxHoldDistance);
-
-                originalUseGravity = heldRb.useGravity;
-                heldRb.useGravity = false; // Havada süzülmesi için
-                heldRb.interpolation = RigidbodyInterpolation.Interpolate;
+                return; // Eşya var, sepeti tutma — PlayerGrabber alsın
             }
+        }
+        
+        // Işın yolunda sadece araç varsa, aracı tut
+        GrabbableObject grabbable = null;
+        foreach (var h in hits)
+        {
+            GrabbableObject candidate = h.collider.GetComponentInParent<GrabbableObject>();
+            if (candidate != null && candidate.isHeavyVehicle)
+            {
+                grabbable = candidate;
+                break;
+            }
+        }
+        
+        if (grabbable != null)
+        {
+            if (grabbable.AttachedBagCount > 0)
+            {
+                Debug.Log("Bu araca balon takılı, taşınamaz.");
+                return;
+            }
+
+            heldVehicle = grabbable;
+            heldRb = grabbable.GetComponent<Rigidbody>();
+            
+            // Network Sahipliğini İste (Eşya tutma ile aynı mantık)
+            NetworkObject netObj = heldVehicle.GetComponent<NetworkObject>();
+            if (netObj != null)
+            {
+                ServerTakeOwnership(netObj);
+            }
+
+            Vector3 referencePos = holdPoint != null ? holdPoint.position : playerCamera.position;
+            currentHoldDistance = Vector3.Distance(referencePos, heldRb.position);
+            currentHoldDistance = Mathf.Clamp(currentHoldDistance, minHoldDistance, maxHoldDistance);
+
+            originalUseGravity = heldRb.useGravity;
+            heldRb.useGravity = false; // Havada süzülmesi için
+            heldRb.interpolation = RigidbodyInterpolation.Interpolate;
         }
     }
 

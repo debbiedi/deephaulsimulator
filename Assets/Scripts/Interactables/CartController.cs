@@ -22,12 +22,19 @@ public class CartController : NetworkBehaviour
         
         // Ağırlık merkezini ayarla
         rb.centerOfMass = centerOfMassOffset;
+        
+        // Hızlı hareket ettiğinde eşyaların duvarlardan geçmesini önlemek için sürekli çarpışma algılama
+        rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
     }
 
     private void FixedUpdate()
     {
         // Sahibi değılsek (Server ya da Owner değilsek) fizik çalıştırma
         if (!base.IsOwner && !base.IsServerInitialized) return;
+
+        // Eğer sepet bir oyuncu tarafından tutuluyorsa (Owner geçerli), dik tutma kuvvetini uygulama.
+        // Çünkü PlayerVehicleInteractor zaten dönüşü kontrol ediyor; ikisi çakışınca titreme oluyor.
+        if (base.Owner.IsValid) return;
 
         ApplyUprightForce();
     }
