@@ -1,4 +1,4 @@
-﻿ using UnityEngine;
+ using UnityEngine;
 #if ENABLE_INPUT_SYSTEM 
 using UnityEngine.InputSystem;
 #endif
@@ -198,8 +198,8 @@ namespace StarterAssets
                 _hasAnimator = _animator != null;
             }
 
-            JumpAndGravity();
             GroundedCheck();
+            JumpAndGravity();
             Move();
             UpdateSwimAnimations();
         }
@@ -403,7 +403,12 @@ namespace StarterAssets
                 // update animator if using character
                 if (_hasAnimator)
                 {
-                    _animator.SetBool(_animIDJump, false);
+                    // Sadece karakter gerçekten yerdeyken (yukarı gitmiyorken) Jump'ı kapat
+                    // Aksi halde zıplama başladığında stale Grounded değeri Jump'ı anında false yapar
+                    if (_verticalVelocity <= 0f)
+                    {
+                        _animator.SetBool(_animIDJump, false);
+                    }
                     _animator.SetBool(_animIDFreeFall, false);
                 }
 
