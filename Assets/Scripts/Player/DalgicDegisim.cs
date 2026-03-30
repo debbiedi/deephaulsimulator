@@ -223,6 +223,13 @@ public class DalgicDegisim : NetworkBehaviour
             if (target != null)
                 _animator.runtimeAnimatorController = target;
         }
+
+        // CameraModeManager'a renderer'ları güncellemesi gerektiğini söyle
+        // (FPS modundaysa yeni modelin vücudunu da gizler)
+        if (CameraModeManager.Instance != null && base.IsOwner)
+        {
+            CameraModeManager.Instance.RefreshCharacterRenderers();
+        }
     }
 
     // ==================== UI ====================
