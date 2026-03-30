@@ -4386,7 +4386,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1211995831}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 26b716c41e9b56b4baafaf13a523ba2e, type: 3}
   m_Name: 
@@ -4448,6 +4448,8 @@ MonoBehaviour:
   playerPrefabs:
   - {fileID: 8221100990702153553, guid: afb86116437bdac4f90ed6914d53e11e, type: 3}
   - {fileID: 8221100990702153553, guid: fddc46c257b3c2f459dd55575b5056b4, type: 3}
+  - {fileID: 8221100990702153553, guid: abcf4c0e1b45eed46972244519bb6e1e, type: 3}
+  - {fileID: 8221100990702153553, guid: 132de052ecb151d4cbc671c40f06d4d3, type: 3}
   spawnPoints: []
 --- !u!1 &1215189835
 GameObject:

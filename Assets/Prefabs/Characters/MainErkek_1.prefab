@@ -1482,7 +1482,7 @@ MonoBehaviour:
   normalModel: {fileID: 2137530907482432942}
   diverModel: {fileID: 2793585324420491360}
   normalController: {fileID: 9100000, guid: 066bd580e0e3029418226a1ae885bd0f, type: 2}
-  normalAvatar: {fileID: 9000000, guid: 7a86371574f4860408af0dea9b774a51, type: 3}
+  normalAvatar: {fileID: 9000000, guid: dd057b55b6e2253489bff2f9243dce42, type: 3}
   diverController: {fileID: 9100000, guid: 5880b625cbef68948beadf9e8a29d20c, type: 2}
   diverAvatar: {fileID: 9000000, guid: e6ebc958ead9953409f5efefa8aa9248, type: 3}
 --- !u!1001 &1255203405755160831
