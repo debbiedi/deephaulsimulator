@@ -4,5 +4,4 @@
   <Project Path="GameKit.Dependencies.csproj" />
   <Project Path="Assembly-CSharp.csproj" />
   <Project Path="Unity.FishNet.Codegen.csproj" />
-  <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>

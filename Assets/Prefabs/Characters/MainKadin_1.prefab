@@ -253,7 +253,7 @@ Transform:
   m_GameObject: {fileID: 774238448088366257}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 1.375, z: 0}
+  m_LocalPosition: {x: 1.94575, y: 1.375, z: -4}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -290,9 +290,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
+  near clip plane: 0.2
   far clip plane: 500
-  field of view: 35
+  field of view: 28
   orthographic: 0
   orthographic size: 10
   m_Depth: -1
@@ -716,8 +716,11 @@ MonoBehaviour:
   - {fileID: 8676302997163695490}
   - {fileID: 2364561402664506632}
   - {fileID: 6359247056334615463}
+  - {fileID: 1516793231167294178}
   - {fileID: 4336225408076550258}
   - {fileID: 4465927812540762583}
+  - {fileID: 2777338379064951165}
+  - {fileID: 4668786717626637189}
   - {fileID: 3868330913114052495}
   InitializedParentNetworkBehaviour: {fileID: 0}
   InitializedNestedNetworkObjects: []
@@ -729,7 +732,7 @@ MonoBehaviour:
   _initializeOrder: 0
   _preventDespawnOnDisconnect: 0
   _defaultDespawnType: 0
-  _initializedTimestamp: -8584277821995865588
+  _initializedTimestamp: -8584267032088411883
   NetworkObserver: {fileID: 0}
   _enablePrediction: 0
   _predictionType: 0
@@ -745,7 +748,7 @@ MonoBehaviour:
   _spectatorInterpolation: 2
   _enableTeleport: 0
   _teleportThreshold: 1
-  <PrefabId>k__BackingField: 2
+  <PrefabId>k__BackingField: 7
   <SpawnableCollectionId>k__BackingField: 0
   <AssetPathHash>k__BackingField: 18058909383802327749
   SceneId: 0
@@ -1450,7 +1453,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 34ad3feecd53141f481aed52f4d1baf7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CameraModeManager
-  _componentIndexCache: 9
+  _componentIndexCache: 12
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   tpsVirtualCamera: {fileID: 6839663338498295139}
@@ -3753,9 +3756,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ed3a90fc934784d429e7abb8f02e7e42, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeltBagAudio
-  _componentIndexCache: 255
+  _componentIndexCache: 7
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
   inventory: {fileID: 4336225408076550258}
   audioSource: {fileID: 2823908585404832651}
   collectSound: {fileID: 8300000, guid: 87027de1a52c426459886917f545847e, type: 3}
@@ -3870,7 +3873,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b0df4d80a8093b4395736aa4ab5f5da, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::BeltBagInventory
-  _componentIndexCache: 7
+  _componentIndexCache: 8
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
   maxWeight: 20
@@ -3887,7 +3890,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a31f8df0dfaafb1428d91aea27801930, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerWallet
-  _componentIndexCache: 8
+  _componentIndexCache: 9
   _addedNetworkObject: {fileID: 8221100990702153553}
   _networkObjectCache: {fileID: 8221100990702153553}
 --- !u!114 &2777338379064951165
@@ -3902,9 +3905,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73bcd9f24f7a4fd4584f02b654f501c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerVehicleInteractor
-  _componentIndexCache: 255
+  _componentIndexCache: 10
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
   playerCamera: {fileID: 5104582788824523123}
   holdPoint: {fileID: 5451334987390215397}
   grabMask:
@@ -3930,9 +3933,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2f7e8e339ed8c0438522024847039c0, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DalgicDegisim
-  _componentIndexCache: 255
+  _componentIndexCache: 11
   _addedNetworkObject: {fileID: 8221100990702153553}
-  _networkObjectCache: {fileID: 0}
+  _networkObjectCache: {fileID: 8221100990702153553}
   promptPanel: {fileID: 0}
   progressFill: {fileID: 0}
   promptText: {fileID: 0}
