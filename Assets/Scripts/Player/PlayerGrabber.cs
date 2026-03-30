@@ -279,6 +279,7 @@ public class PlayerGrabber : NetworkBehaviour
             }
 
             heldObject = grabbable;
+            heldObject.SetOutline(false);
             heldRb = grabbable.GetComponent<Rigidbody>();
             
             // Objenin sahipliğini sunucudan üzerimize alıyoruz
@@ -366,6 +367,8 @@ public class PlayerGrabber : NetworkBehaviour
     {
         if (heldObject == null || beltBagInventory == null) return;
 
+        heldObject.SetOutline(true);
+
         NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
         if (netObj != null)
         {
@@ -386,6 +389,8 @@ public class PlayerGrabber : NetworkBehaviour
 
         NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
         if (netObj == null) return;
+
+        heldObject.SetOutline(true);
 
         // Yerçekimini geri yükle (despawn öncesi temizlik)
         if (heldRb != null)
@@ -479,6 +484,8 @@ public class PlayerGrabber : NetworkBehaviour
 
         NetworkObject itemNetObj = heldObject.GetComponent<NetworkObject>();
         if (itemNetObj == null) return;
+
+        heldObject.SetOutline(true);
 
         // Yerçekimini geri yükle (despawn öncesi temizlik)
         if (heldRb != null)
@@ -656,6 +663,7 @@ public class PlayerGrabber : NetworkBehaviour
             // Objenin sahipliğini bırak (Sunucuya geri ver)
             if (heldObject != null)
             {
+                heldObject.SetOutline(true);
                 NetworkObject netObj = heldObject.GetComponent<NetworkObject>();
                 if (netObj != null)
                 {

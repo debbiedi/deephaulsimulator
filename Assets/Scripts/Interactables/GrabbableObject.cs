@@ -40,9 +40,20 @@ public class GrabbableObject : NetworkBehaviour
     [Tooltip("Bu eşyayı yüzeye çıkarmak için gereken balon sayısı")]
     public int requiredBagCount = 1;
 
+    [Header("Glow Outline Settings")]
+    [Tooltip("Eğer bu obje (taşıma arabası veya sepet gibi) parlamayacaksa buradaki tiki kaldırın.")]
+    public bool enableOutline = true;
+    public Color outlineColor = Color.yellow;
+    [Range(0f, 10f)] public float outlineWidth = 2.0f;
+
     private Rigidbody rb;
     public readonly SyncVar<bool> isFixedInCart = new SyncVar<bool>(false);
     private List<LiftingBag> attachedBags = new List<LiftingBag>();
+
+    // Glow için referanslar
+    private Material _outlineMaterial;
+    private Dictionary<Renderer, Material[]> _originalMaterials = new Dictionary<Renderer, Material[]>();
+    private bool _isOutlined = false;
 
     // --- Public Erişimler (Lifting Bag sistemi için) ---
     public Rigidbody Rb { get { if (rb == null) rb = GetComponent<Rigidbody>(); return rb; } }
@@ -57,6 +68,11 @@ public class GrabbableObject : NetworkBehaviour
     private void OnDestroy()
     {
         isFixedInCart.OnChange -= OnFixedInCartChanged;
+        
+        if (_outlineMaterial != null)
+        {
+            Destroy(_outlineMaterial);
+        }
     }
 
     private void OnFixedInCartChanged(bool prev, bool next, bool asServer)
@@ -89,6 +105,68 @@ public class GrabbableObject : NetworkBehaviour
     {
         currentPrice = basePrice;
         rb = GetComponent<Rigidbody>();
+
+        if (!enableOutline) return; // Parlama istenmiyorsa shader ayarlarını hiç kurma
+
+        // Outline sistemi hazırlığı
+        Shader outlineShader = Shader.Find("Custom/URP_Outline");
+        if (outlineShader != null)
+        {
+            _outlineMaterial = new Material(outlineShader);
+
+            // GameManager üzerinden rarity (nadirlik) rengini otomatik çeker, 
+            // yoksa varsayılan outlineColor rengini kullanır.
+            Color finalColor = GameManager.Instance != null 
+                             ? GameManager.Instance.GetColorForRarity(rarityTier) 
+                             : outlineColor;
+
+            _outlineMaterial.SetColor("_OutlineColor", finalColor);
+            _outlineMaterial.SetFloat("_OutlineWidth", outlineWidth);
+        }
+        else
+        {
+            Debug.LogWarning("Outline shader bulunamadı. Lütfen URP_Outline shader'ın projede olduğundan emin olun.");
+        }
+
+        Renderer[] renderers = GetComponentsInChildren<Renderer>();
+        foreach (Renderer r in renderers)
+        {
+            // Parçacık vb. Renderer'ları outline dışında tut
+            if (r is ParticleSystemRenderer) continue;
+            _originalMaterials[r] = r.sharedMaterials;
+        }
+
+        // Obje dünyada ilk spawn olduğunda parlasın
+        SetOutline(true);
+    }
+
+    public void SetOutline(bool enabled)
+    {
+        if (!enableOutline || _outlineMaterial == null) return;
+        if (_isOutlined == enabled) return;
+
+        _isOutlined = enabled;
+
+        foreach (var kvp in _originalMaterials)
+        {
+            Renderer r = kvp.Key;
+            if (r == null) continue; // Nesne bu sırada silinmişse atla
+
+            if (enabled)
+            {
+                // Material dizisinin en sonuna Outline materyali ekle
+                Material[] orig = kvp.Value;
+                Material[] withOutline = new Material[orig.Length + 1];
+                orig.CopyTo(withOutline, 0);
+                withOutline[orig.Length] = _outlineMaterial;
+                r.sharedMaterials = withOutline;
+            }
+            else
+            {
+                // Orijinal görünene geri dön (Glow kapat)
+                r.sharedMaterials = kvp.Value;
+            }
+        }
     }
 
     public override void OnStartClient()

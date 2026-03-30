@@ -23,28 +23,35 @@ public class CrosshairManager : MonoBehaviour
         else Destroy(gameObject);
     }
 
-    private void Start()
-    {
-        // Eğer CameraModeManager varsa, kamera değişimi eventini dinlemeye başla
-        if (CameraModeManager.Instance != null)
-        {
-            CameraModeManager.Instance.OnCameraModeChanged += HandleCameraModeChanged;
+    private CameraModeManager _currentCameraManager;
 
-            // Oyun başladığında mevcut kameraya göre görünürlüğü ayarla
-            HandleCameraModeChanged(CameraModeManager.Instance.CurrentMode);
-        }
-        else
+    private void Update()
+    {
+        // CameraModeManager instance'ına dinamik olarak bağlan
+        if (CameraModeManager.Instance != null && _currentCameraManager != CameraModeManager.Instance)
         {
+            if (_currentCameraManager != null)
+                _currentCameraManager.OnCameraModeChanged -= HandleCameraModeChanged;
+
+            _currentCameraManager = CameraModeManager.Instance;
+            _currentCameraManager.OnCameraModeChanged += HandleCameraModeChanged;
+
+            // Yeni kameraya bağlandığında anında durumunu güncelle
+            HandleCameraModeChanged(_currentCameraManager.CurrentMode);
+        }
+        else if (CameraModeManager.Instance == null && _currentCameraManager != null)
+        {
+            // Karakter silinirse crosshair'i kapat
+            _currentCameraManager = null;
             SetCrosshairState(false, false);
         }
     }
 
     private void OnDestroy()
     {
-        // Script kapanınca eventten çıkış yap (Hata vermemesi için)
-        if (CameraModeManager.Instance != null)
+        if (_currentCameraManager != null)
         {
-            CameraModeManager.Instance.OnCameraModeChanged -= HandleCameraModeChanged;
+            _currentCameraManager.OnCameraModeChanged -= HandleCameraModeChanged;
         }
     }
 

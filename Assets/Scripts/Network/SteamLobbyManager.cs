@@ -112,6 +112,8 @@ public class SteamLobbyManager : MonoBehaviour
         }
     }
 
+    private CallResult<LobbyCreated_t> _lobbyCreatedCallResult;
+
     // ==================== Lobi Oluşturma ====================
 
     /// <summary>
@@ -135,7 +137,64 @@ public class SteamLobbyManager : MonoBehaviour
         _pendingPassword = password;
 
         Debug.Log($"[SteamLobbyManager] Lobi oluşturuluyor... (Tip: {lobbyType}, Max: {maxPlayers})");
-        SteamMatchmaking.CreateLobby(lobbyType, maxPlayers);
+        
+        SteamAPICall_t handle = SteamMatchmaking.CreateLobby(lobbyType, maxPlayers);
+        
+        if (_lobbyCreatedCallResult == null)
+            _lobbyCreatedCallResult = CallResult<LobbyCreated_t>.Create(OnCallResultLobbyCreated);
+            
+        _lobbyCreatedCallResult.Set(handle);
+        Debug.Log("[SteamLobbyManager] Steam'e istek iletildi, CallResult bekleniyor...");
+    }
+
+    private void OnCallResultLobbyCreated(LobbyCreated_t callback, bool bIOFailure)
+    {
+        Debug.Log($"[SteamLobbyManager] CallResult Döndü! bIOFailure: {bIOFailure}, Result: {callback.m_eResult}");
+        
+        if (bIOFailure || callback.m_eResult != EResult.k_EResultOK)
+        {
+            Debug.LogError($"[SteamLobbyManager] Lobi oluşturulamadı (CallResult)! Hata Kodu: {callback.m_eResult} G/Ç Hatası: {bIOFailure}");
+            return;
+        }
+
+        CurrentLobbyId = new CSteamID(callback.m_ulSteamIDLobby);
+        IsInLobby = true;
+        IsHost = true;
+
+        SteamMatchmaking.SetLobbyData(CurrentLobbyId, "game", "DeepHaulSimulator");
+        SteamMatchmaking.SetLobbyData(CurrentLobbyId, "host_name", SteamFriends.GetPersonaName());
+        SteamMatchmaking.SetLobbyData(CurrentLobbyId, "host_id", SteamUser.GetSteamID().ToString());
+        
+        SteamMatchmaking.SetLobbyData(CurrentLobbyId, "is_private", _pendingIsPrivate ? "true" : "false");
+        if (_pendingIsPrivate)
+        {
+            SteamMatchmaking.SetLobbyData(CurrentLobbyId, "password", _pendingPassword);
+        }
+
+        Debug.Log("[SteamLobbyManager] Sunucu bağlantısı başlatılıyor...");
+        
+        try 
+        {
+            _networkManager.ServerManager.StartConnection();
+            _networkManager.ClientManager.StartConnection();
+            Debug.Log("[SteamLobbyManager] FishNet sunucu+istemci başlatma emri verildi.");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[SteamLobbyManager] FishNet bağlantı başlatılırken HATA oluştu: {ex}");
+        }
+
+        try 
+        {
+            OnLobbyCreated?.Invoke();
+            Debug.Log("[SteamLobbyManager] OnLobbyCreated Event'leri ateşlendi.");
+        }
+        catch (System.Exception ex)
+        {
+            Debug.LogError($"[SteamLobbyManager] OnLobbyCreated Event'inde içsel bir HATA var: {ex}");
+        }
+
+        Debug.Log($"[SteamLobbyManager] ✅ Lobi oluşturuldu! ID: {CurrentLobbyId}");
     }
 
     /// <summary>

@@ -346,11 +346,9 @@ public class CameraModeManager : NetworkBehaviour
     }
 
     private void SetCharacterRenderersVisible(bool visible)
-    {        // Eğer Inspector'dan renderer atanmamışsa her şeyi otomatik bulur (KESİN ÇÖZÜM)
-        if (characterRenderers == null || characterRenderers.Length == 0)       
-        {
-            characterRenderers = transform.root.GetComponentsInChildren<Renderer>();
-        }
+    {
+        // Her seferinde aktif renderer'ları tara (model swap sonrası eski cache stale kalır)
+        characterRenderers = transform.root.GetComponentsInChildren<Renderer>();
         if (characterRenderers == null) return;
 
         foreach (var renderer in characterRenderers)
@@ -364,6 +362,29 @@ public class CameraModeManager : NetworkBehaviour
                     ? UnityEngine.Rendering.ShadowCastingMode.On 
                     : UnityEngine.Rendering.ShadowCastingMode.ShadowsOnly;
             }
+        }
+    }
+
+    /// <summary>
+    /// Karakter modeli değiştiğinde (dalgıç swap) renderer cache'ini yenileyip
+    /// mevcut kamera moduna göre görünürlüğü tekrar uygular.
+    /// DalgicDegisim tarafından çağrılır.
+    /// </summary>
+    public void RefreshCharacterRenderers()
+    {
+        if (!base.IsOwner) return;
+
+        // Cache'i temizle
+        characterRenderers = null;
+
+        // Mevcut moda göre tekrar uygula
+        if (CurrentMode == CameraMode.FPS && hideCharacterInFPS)
+        {
+            SetCharacterRenderersVisible(false);
+        }
+        else
+        {
+            SetCharacterRenderersVisible(true);
         }
     }
 
