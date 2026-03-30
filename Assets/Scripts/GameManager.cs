@@ -1,5 +1,6 @@
 using UnityEngine;
-
+using System.Collections.Generic;
+using System;
 /// <summary>
 /// Oyun genelini yöneten ana manager.
 /// CameraModeManager ile entegre çalışarak kamera modu değişikliklerini dinler.
@@ -23,6 +24,21 @@ public class GameManager : MonoBehaviour
             return;
         }
         Instance = this;
+    }
+
+    [Header("Rarity (Nadirlik) Veritabanı")]
+    [Tooltip("Projedeki RarityDatabase objesini buraya sürükleyin. Outline (Glow) rengi bu veritabanındaki Glow Color HDR değerinden alınacak.")]
+    public RarityDatabase rarityDatabase;
+
+    public Color GetColorForRarity(RarityTier tier)
+    {
+        if (rarityDatabase != null)
+        {
+            RarityData data = rarityDatabase.GetData(tier);
+            if (data != null)
+                return data.glowColorHDR; // veya rarityColor dönebilirsiniz
+        }
+        return Color.yellow; // Ayarlanmamışsa veya veritabanı yoksa varsayılan sarı döner
     }
 
     void Start()

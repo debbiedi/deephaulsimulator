@@ -599,7 +599,7 @@ MonoBehaviour:
   _componentIndexCache: 1
   _addedNetworkObject: {fileID: 3065943637785008811}
   _networkObjectCache: {fileID: 3065943637785008811}
-  itemName: Unnamed Item
+  itemName: "Level_1Sualt\u0131"
   itemId: 
   itemSize: 3
   isHeavyVehicle: 1
@@ -614,6 +614,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 0
   requiredBagCount: 1
+  enableOutline: 0
+  outlineColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  outlineWidth: 2
 --- !u!1 &7324291748875590439
 GameObject:
   m_ObjectHideFlags: 0
